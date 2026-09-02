@@ -65,7 +65,7 @@ export function MultipleChoiceQuestion({
                     : "border-border hover:bg-muted",
                 ].join(" ")}
               >
-                <RadioGroupItem value={option.id} id={inputId} className="mt-0.5" />
+                <RadioGroupItem value={String(option.id)} id={inputId} className="mt-0.5" />
                 <span className="font-medium text-muted-foreground">
                   {option.label}.
                 </span>

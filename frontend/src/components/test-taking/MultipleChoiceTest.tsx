@@ -101,10 +101,10 @@ export function MultipleChoiceTest({ testId }: MultipleChoiceTestProps) {
           <MultipleChoiceQuestion
             question={currentQuestion}
             questionNumber={currentQuestionIndex + 1}
-            selectedOptionId={answers[currentQuestion.id]}
-            saveStatus={saveStatus[currentQuestion.id]}
-            onSelect={(optionId) => selectAnswer(currentQuestion.id, optionId)}
-            onRetrySave={() => retrySave(currentQuestion.id)}
+            selectedOptionId={answers[String(currentQuestion.id)]}
+            saveStatus={saveStatus[String(currentQuestion.id)]}
+            onSelect={(optionId) => selectAnswer(String(currentQuestion.id), optionId)}
+            onRetrySave={() => retrySave(String(currentQuestion.id))}
           />
         )}
 

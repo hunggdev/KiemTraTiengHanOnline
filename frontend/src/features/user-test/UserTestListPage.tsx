@@ -121,7 +121,7 @@ export function UserTestListPage({ onStartTest }: UserTestListPageProps) {
                 </div>
 
                 <Button
-                  onClick={() => onStartTest(test.id)}
+                  onClick={() => onStartTest(String(test.id))}
                   className="w-full rounded-xl gap-2 font-semibold shadow-xs"
                 >
                   <Play className="w-4 h-4 fill-current" />

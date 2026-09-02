@@ -35,7 +35,7 @@ export function QuestionNavigator({
               const isCurrent =
                 sectionIndex === currentSectionIndex &&
                 questionIndex === currentQuestionIndex;
-              const isAnswered = answeredQuestionIds.has(question.id);
+              const isAnswered = answeredQuestionIds.has(String(question.id));
 
               return (
                 <button

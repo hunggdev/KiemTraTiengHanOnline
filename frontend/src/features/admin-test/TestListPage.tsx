@@ -129,7 +129,7 @@ function TestCard({ test, onView, onEdit, onDelete, onTogglePublish, isDeleting,
             variant="outline"
             size="sm"
             className="flex-1 text-xs h-8"
-            onClick={() => onView(test.id)}
+            onClick={() => onView(String(test.id))}
           >
             <Eye className="w-3.5 h-3.5 mr-1" />
             Xem
@@ -138,7 +138,7 @@ function TestCard({ test, onView, onEdit, onDelete, onTogglePublish, isDeleting,
             variant="outline"
             size="sm"
             className="flex-1 text-xs h-8"
-            onClick={() => onEdit(test.id)}
+            onClick={() => onEdit(String(test.id))}
           >
             <Pencil className="w-3.5 h-3.5 mr-1" />
             Sửa
@@ -147,7 +147,7 @@ function TestCard({ test, onView, onEdit, onDelete, onTogglePublish, isDeleting,
           <Button
             variant="outline"
             size="sm"
-            onClick={() => onTogglePublish(test.id)}
+            onClick={() => onTogglePublish(String(test.id))}
             disabled={isTogglingPublish}
             className="flex-1 text-xs h-8"
             title={test.isPublished ? "Hủy xuất bản" : "Xuất bản"}
@@ -178,7 +178,7 @@ function TestCard({ test, onView, onEdit, onDelete, onTogglePublish, isDeleting,
               <AlertDialogFooter>
                 <AlertDialogCancel>Hủy</AlertDialogCancel>
                 <AlertDialogAction
-                  onClick={() => onDelete(test.id)}
+                  onClick={() => onDelete(String(test.id))}
                   className="bg-destructive hover:bg-destructive/90 text-white"
                 >
                   Xóa bài thi

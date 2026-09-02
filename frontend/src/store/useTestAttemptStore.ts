@@ -77,7 +77,7 @@ export const useTestAttemptStore = create<TestAttemptState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const attempt = await testAttemptService.getAttempt(attemptId);
-      const test = await testAttemptService.getTest(attempt.testId);
+      const test = await testAttemptService.getTest(String(attempt.testId));
       set({ test, attempt, answers: buildAnswersMap(attempt), isLoading: false });
     } catch (err) {
       set({
@@ -164,7 +164,7 @@ export const useTestAttemptStore = create<TestAttemptState>((set, get) => ({
 
     set({ isSubmitting: true, error: null });
     try {
-      const result = await testAttemptService.submitAttempt(attempt.id);
+      const result = await testAttemptService.submitAttempt(String(attempt.id));
       set({ attempt: result.attempt, isSubmitting: false });
     } catch (err) {
       set({
