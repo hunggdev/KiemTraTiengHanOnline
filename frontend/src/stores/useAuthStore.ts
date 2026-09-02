@@ -13,12 +13,28 @@ interface AuthState {
   setUser: (user: UserDTO | null) => void;
 }
 
+const getInitialUser = (): UserDTO | null => {
+  try {
+    const raw = localStorage.getItem("user");
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
+
+const initialUser = getInitialUser();
+
 export const useAuthStore = create<AuthState>((set) => ({
-  user: null,
-  isAuthenticated: false,
+  user: initialUser,
+  isAuthenticated: !!initialUser,
   isLoading: true,
 
   setUser: (user) => {
+    if (user) {
+      localStorage.setItem("user", JSON.stringify(user));
+    } else {
+      localStorage.removeItem("user");
+    }
     set({ user, isAuthenticated: !!user, isLoading: false });
   },
 
@@ -27,6 +43,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       const res = await authService.signIn(payload);
       if (res.data) {
+        localStorage.setItem("user", JSON.stringify(res.data));
         set({ user: res.data, isAuthenticated: true, isLoading: false });
         return res.data;
       }
@@ -42,6 +59,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       const res = await authService.signUp(payload);
       if (res.data) {
+        localStorage.setItem("user", JSON.stringify(res.data));
         set({ user: res.data, isAuthenticated: true, isLoading: false });
         return res.data;
       }
@@ -59,6 +77,9 @@ export const useAuthStore = create<AuthState>((set) => ({
     } catch (err) {
       console.error("Sign out error:", err);
     } finally {
+      localStorage.removeItem("user");
+      localStorage.removeItem("token");
+      localStorage.removeItem("accessToken");
       set({ user: null, isAuthenticated: false, isLoading: false });
     }
   },
@@ -68,14 +89,23 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       const res = await authService.getMe();
       if (res.data) {
+        localStorage.setItem("user", JSON.stringify(res.data));
         set({ user: res.data, isAuthenticated: true, isLoading: false });
         return res.data;
       }
+      localStorage.removeItem("user");
       set({ user: null, isAuthenticated: false, isLoading: false });
       return null;
     } catch (err) {
+      // Nếu có sẵn user trong localStorage (offline/mobile), giữ tạm
+      const savedUser = getInitialUser();
+      if (savedUser) {
+        set({ user: savedUser, isAuthenticated: true, isLoading: false });
+        return savedUser;
+      }
       set({ user: null, isAuthenticated: false, isLoading: false });
       return null;
     }
   },
 }));
+

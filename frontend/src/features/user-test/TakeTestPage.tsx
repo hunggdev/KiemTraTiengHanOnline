@@ -70,6 +70,8 @@ export function TakeTestPage({ testId, onExit, onFinish }: TakeTestPageProps) {
   const [answers, setAnswers] = useState<Record<string, string>>({}); // questionId -> answerText ('A', 'B', etc.)
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitDialogOpen, setIsSubmitDialogOpen] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const hasAutoSubmitted = useRef(false);
 
   // Khởi tạo thời gian làm bài khi có dữ liệu
@@ -127,8 +129,21 @@ export function TakeTestPage({ testId, onExit, onFinish }: TakeTestPageProps) {
   const performSubmit = async () => {
     if (isSubmitting) return;
     setIsSubmitting(true);
+    setSubmitError(null);
 
     try {
+      // Lấy userId chắc chắn từ store hoặc localStorage
+      let currentUserId: string | undefined = user?.id !== undefined ? String(user.id) : undefined;
+      if (!currentUserId) {
+        const stored = localStorage.getItem("user");
+        if (stored) {
+          try {
+            const parsed = JSON.parse(stored);
+            if (parsed.id) currentUserId = String(parsed.id);
+          } catch {}
+        }
+      }
+
       const payloadAnswers = Object.entries(answers).map(([questionId, answerText]) => ({
         questionId,  // string key từ state — backend sẽ parseInt
         answerText,
@@ -136,15 +151,19 @@ export function TakeTestPage({ testId, onExit, onFinish }: TakeTestPageProps) {
 
       const res = await submitMutation.mutateAsync({
         testId,
-        userId: user?.id !== undefined ? String(user.id) : undefined,
+        userId: currentUserId,
         answers: payloadAnswers,
       });
 
       if (res.data) {
+        setIsSubmitDialogOpen(false);
         onFinish(res.data);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Submit test failed:", err);
+      const errorMsg = err?.response?.data?.message || err?.message || "Không thể nộp bài. Vui lòng kiểm tra kết nối mạng!";
+      setSubmitError(errorMsg);
+      alert(`Lỗi nộp bài: ${errorMsg}`);
       setIsSubmitting(false);
     }
   };
@@ -177,6 +196,7 @@ export function TakeTestPage({ testId, onExit, onFinish }: TakeTestPageProps) {
   const answeredCount = Object.keys(answers).length;
   const totalCount = questionsList.length;
   const progressPercent = totalCount > 0 ? Math.round((answeredCount / totalCount) * 100) : 0;
+  const isLastQuestion = currentIndex === questionsList.length - 1;
 
   // Format MM:SS
   const formatTime = (secs: number) => {
@@ -191,11 +211,11 @@ export function TakeTestPage({ testId, onExit, onFinish }: TakeTestPageProps) {
     <div className="min-h-screen bg-muted/20 flex flex-col">
       {/* Top Examination Navigation Bar */}
       <header className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b px-4 py-3 shadow-xs">
-        <div className="max-w-6xl mx-auto flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 min-w-0">
+        <div className="max-w-6xl mx-auto flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="ghost" size="sm" className="text-muted-foreground h-8 px-2">
+                <Button variant="ghost" size="sm" className="text-muted-foreground h-8 px-2 cursor-pointer">
                   <ArrowLeft className="w-4 h-4 mr-1" />
                   Thoát
                 </Button>
@@ -209,7 +229,7 @@ export function TakeTestPage({ testId, onExit, onFinish }: TakeTestPageProps) {
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Ở lại làm bài</AlertDialogCancel>
-                  <AlertDialogAction onClick={onExit} className="bg-destructive text-white hover:bg-destructive/90">
+                  <AlertDialogAction onClick={onExit} className="bg-destructive text-white hover:bg-destructive/90 cursor-pointer">
                     Xác nhận thoát
                   </AlertDialogAction>
                 </AlertDialogFooter>
@@ -225,67 +245,89 @@ export function TakeTestPage({ testId, onExit, onFinish }: TakeTestPageProps) {
           </div>
 
           {/* Timer & Submit Button */}
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             {timeLeft !== null && (
               <div
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-sm font-mono font-bold tracking-wider ${
+                className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border text-xs sm:text-sm font-mono font-bold tracking-wider ${
                   isTimeRunningLow
                     ? "border-destructive/40 bg-destructive/10 text-destructive animate-pulse"
                     : "border-border bg-card text-foreground"
                 }`}
               >
-                <Clock className="w-4 h-4" />
+                <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 <span>{formatTime(timeLeft)}</span>
               </div>
             )}
 
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button
-                  disabled={isSubmitting}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 rounded-xl h-9 px-4 font-semibold shadow-xs"
-                >
-                  {isSubmitting ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Send className="w-4 h-4" />
-                  )}
-                  Nộp bài
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Xác nhận nộp bài kiểm tra?</AlertDialogTitle>
-                  <AlertDialogDescription className="space-y-2">
-                    <p>
-                      Bạn đã hoàn thành <strong>{answeredCount}</strong> trên tổng số <strong>{totalCount}</strong> câu hỏi.
-                    </p>
-                    {answeredCount < totalCount && (
-                      <p className="text-amber-600 dark:text-amber-400 text-xs flex items-center gap-1 font-medium">
-                        <AlertTriangle className="w-4 h-4 shrink-0" />
-                        Còn {totalCount - answeredCount} câu hỏi bạn chưa chọn đáp án!
-                      </p>
-                    )}
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Tiếp tục làm bài</AlertDialogCancel>
-                  <AlertDialogAction onClick={performSubmit} className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">
-                    Đồng ý nộp bài
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+            <Button
+              onClick={() => setIsSubmitDialogOpen(true)}
+              disabled={isSubmitting}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 rounded-xl h-9 px-3 sm:px-4 font-semibold shadow-xs cursor-pointer"
+            >
+              {isSubmitting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Send className="w-4 h-4" />
+              )}
+              <span>Nộp bài</span>
+            </Button>
           </div>
         </div>
       </header>
+
+      {/* Confirmation Dialog for Submission */}
+      <AlertDialog open={isSubmitDialogOpen} onOpenChange={setIsSubmitDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xác nhận nộp bài kiểm tra?</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>
+                Bạn đã hoàn thành <strong>{answeredCount}</strong> trên tổng số <strong>{totalCount}</strong> câu hỏi.
+              </p>
+              {answeredCount < totalCount && (
+                <p className="text-amber-600 dark:text-amber-400 text-xs flex items-center gap-1 font-medium">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  Còn {totalCount - answeredCount} câu hỏi bạn chưa chọn đáp án!
+                </p>
+              )}
+              {submitError && (
+                <p className="text-destructive text-xs font-semibold">
+                  ⚠️ {submitError}
+                </p>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isSubmitting} onClick={() => setIsSubmitDialogOpen(false)}>
+              Tiếp tục làm bài
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                performSubmit();
+              }}
+              disabled={isSubmitting}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold cursor-pointer"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                  Đang nộp bài...
+                </>
+              ) : (
+                "Đồng ý nộp bài"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Main Layout: Question Area + Question Navigator */}
       <main className="max-w-6xl mx-auto px-4 py-6 flex-1 w-full grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left: Question Box */}
         <div className="lg:col-span-8 space-y-4">
           {currentQuestion ? (
-            <div className="bg-card rounded-2xl border shadow-sm p-6 space-y-6">
+            <div className="bg-card rounded-2xl border shadow-sm p-4 sm:p-6 space-y-6">
               {/* Question Header */}
               <div className="flex items-center justify-between gap-3 border-b pb-4">
                 <div className="flex items-center gap-2">
@@ -315,7 +357,7 @@ export function TakeTestPage({ testId, onExit, onFinish }: TakeTestPageProps) {
                       <div
                         key={opt.id || opt.label}
                         onClick={() => handleSelectOption(currentQuestion.id, opt.label)}
-                        className={`group flex items-center gap-3.5 p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                        className={`group flex items-center gap-3.5 p-3.5 sm:p-4 rounded-xl border-2 cursor-pointer transition-all active:scale-[0.99] select-none ${
                           isSelected
                             ? "border-primary bg-primary/5 text-foreground shadow-xs"
                             : "border-border/60 hover:border-primary/40 hover:bg-muted/30 text-foreground"
@@ -372,25 +414,36 @@ export function TakeTestPage({ testId, onExit, onFinish }: TakeTestPageProps) {
               )}
 
               {/* Bottom navigation buttons */}
-              <div className="flex items-center justify-between pt-4 border-t">
+              <div className="flex items-center justify-between pt-4 border-t gap-2">
                 <Button
                   variant="outline"
                   onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
                   disabled={currentIndex === 0}
-                  className="rounded-xl"
+                  className="rounded-xl h-10 px-4 cursor-pointer"
                 >
                   <ArrowLeft className="w-4 h-4 mr-1.5" />
                   Câu trước
                 </Button>
 
-                <Button
-                  onClick={() => setCurrentIndex((prev) => Math.min(questionsList.length - 1, prev + 1))}
-                  disabled={currentIndex === questionsList.length - 1}
-                  className="rounded-xl"
-                >
-                  Câu tiếp
-                  <ArrowRight className="w-4 h-4 ml-1.5" />
-                </Button>
+                {isLastQuestion ? (
+                  <Button
+                    onClick={() => setIsSubmitDialogOpen(true)}
+                    disabled={isSubmitting}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl h-10 px-5 font-semibold gap-1.5 cursor-pointer shadow-xs"
+                  >
+                    <Send className="w-4 h-4" />
+                    Hoàn thành & Nộp bài
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={() => setCurrentIndex((prev) => Math.min(questionsList.length - 1, prev + 1))}
+                    disabled={currentIndex === questionsList.length - 1}
+                    className="rounded-xl h-10 px-4 cursor-pointer"
+                  >
+                    Câu tiếp
+                    <ArrowRight className="w-4 h-4 ml-1.5" />
+                  </Button>
+                )}
               </div>
             </div>
           ) : (
@@ -401,10 +454,15 @@ export function TakeTestPage({ testId, onExit, onFinish }: TakeTestPageProps) {
         </div>
 
         {/* Right: Question Navigation Matrix */}
-        <div className="lg:col-span-4 bg-card rounded-2xl border shadow-sm p-5 space-y-5 sticky top-20">
+        <div className="lg:col-span-4 bg-card rounded-2xl border shadow-sm p-4 sm:p-5 space-y-5 sticky top-20">
           <div>
-            <h3 className="font-bold text-sm text-foreground mb-1">Bảng câu hỏi</h3>
-            <div className="flex items-center gap-4 text-xs text-muted-foreground pt-1">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-sm text-foreground">Bảng câu hỏi</h3>
+              <Badge variant="outline" className="text-xs">
+                {answeredCount}/{totalCount} đã làm
+              </Badge>
+            </div>
+            <div className="flex items-center gap-4 text-xs text-muted-foreground pt-1.5">
               <span className="flex items-center gap-1.5">
                 <span className="w-3 h-3 rounded-full bg-primary inline-block" />
                 Đã chọn ({answeredCount})
@@ -416,7 +474,7 @@ export function TakeTestPage({ testId, onExit, onFinish }: TakeTestPageProps) {
             </div>
           </div>
 
-          <div className="grid grid-cols-5 sm:grid-cols-6 gap-2">
+          <div className="grid grid-cols-5 sm:grid-cols-6 gap-2 max-h-72 overflow-y-auto pr-1">
             {questionsList.map((q: any, idx: number) => {
               const isAnswered = !!answers[String(q.id)];
               const isCurrent = idx === currentIndex;
@@ -438,8 +496,25 @@ export function TakeTestPage({ testId, onExit, onFinish }: TakeTestPageProps) {
               );
             })}
           </div>
+
+          {/* Quick Submit button at bottom of matrix for mobile */}
+          <div className="pt-2 border-t">
+            <Button
+              onClick={() => setIsSubmitDialogOpen(true)}
+              disabled={isSubmitting}
+              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl h-10 font-semibold gap-1.5 cursor-pointer shadow-xs"
+            >
+              {isSubmitting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Send className="w-4 h-4" />
+              )}
+              Nộp bài thi ({answeredCount}/{totalCount})
+            </Button>
+          </div>
         </div>
       </main>
     </div>
   );
 }
+

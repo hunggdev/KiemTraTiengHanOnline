@@ -525,7 +525,7 @@ export const submitTestAttempt = async (req, res) => {
     const testId = parseInt(id, 10);
     const { answers = [] } = req.body; // answers: [{ questionId, answerText }]
 
-    // 1. Lấy userId từ JWT cookie (bắt buộc phải đăng nhập)
+    // 1. Lấy userId từ JWT cookie hoặc Authorization header (hoặc fallback từ body nếu mobile chặn cookie)
     let validUserId = null;
     try {
       let token = req.cookies?.token;
@@ -538,6 +538,20 @@ export const submitTestAttempt = async (req, res) => {
       }
     } catch (_) {
       // token không hợp lệ hoặc hết hạn
+    }
+
+    // Fallback: Khi cookie bị chặn trên trình duyệt điện thoại (iOS Safari / in-app browsers)
+    if (!validUserId && req.body.userId) {
+      const parsedUserId = parseInt(req.body.userId, 10);
+      if (!isNaN(parsedUserId)) {
+        const existingUser = await prisma.user.findUnique({
+          where: { id: parsedUserId },
+          select: { id: true },
+        });
+        if (existingUser) {
+          validUserId = existingUser.id;
+        }
+      }
     }
 
     if (!validUserId) {
