@@ -15,6 +15,7 @@ export const testKeys = {
   list: (params: TestListQueryParams) => [...testKeys.lists(), params] as const,
   details: () => [...testKeys.all, "detail"] as const,
   detail: (id: string) => [...testKeys.details(), id] as const,
+  stats: (id: string) => [...testKeys.all, "stats", id] as const,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -39,6 +40,17 @@ export const useTestById = (id: string) => {
     staleTime: 30_000,
   });
 };
+
+/** Lấy thống kê số liệu chi tiết của 1 bài test (Dành cho giáo viên) */
+export const useTestStats = (id: string) => {
+  return useQuery({
+    queryKey: testKeys.stats(id),
+    queryFn: () => testService.getStats(id),
+    enabled: !!id,
+    staleTime: 15_000,
+  });
+};
+
 
 /** Tạo bài test mới */
 export const useCreateTest = () => {

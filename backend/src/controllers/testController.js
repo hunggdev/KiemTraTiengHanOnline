@@ -676,3 +676,306 @@ export const submitTestAttempt = async (req, res) => {
     });
   }
 };
+
+// 9. Thống kê số liệu chi tiết cho 1 bài test (Dành riêng cho giáo viên - TEACHER)
+// Thống kê người tham gia (chỉ lấy bài cao nhất của mỗi học sinh), biểu đồ điểm số, kết quả tổng quan
+export const getTestStats = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const testId = parseInt(id, 10);
+
+    if (isNaN(testId)) {
+      return res.status(400).json({
+        success: false,
+        message: "ID bài kiểm tra không hợp lệ",
+      });
+    }
+
+    // 1. Lấy thông tin bài kiểm tra, các phần thi và câu hỏi
+    const test = await prisma.test.findUnique({
+      where: { id: testId },
+      include: {
+        sections: {
+          orderBy: { order: "asc" },
+          include: {
+            questions: {
+              select: {
+                id: true,
+                score: true,
+                type: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!test) {
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy bài kiểm tra",
+      });
+    }
+
+    // Tính tổng số câu và tổng điểm tối đa của đề thi
+    let totalQuestions = 0;
+    let maxScore = 0;
+    const sectionStatsConfig = [];
+
+    for (const sec of test.sections) {
+      const secQuestionCount = sec.questions.length;
+      const secMaxScore = sec.questions.reduce((sum, q) => sum + (Number(q.score) || 1), 0);
+      totalQuestions += secQuestionCount;
+      maxScore += secMaxScore;
+
+      sectionStatsConfig.push({
+        sectionId: sec.id,
+        skill: sec.skill,
+        order: sec.order,
+        questionIds: sec.questions.map((q) => q.id),
+        questionCount: secQuestionCount,
+        maxScore: secMaxScore,
+      });
+    }
+
+    maxScore = maxScore > 0 ? Math.round(maxScore * 100) / 100 : 10;
+
+    // 2. Lấy tất cả lượt làm bài đã nộp của bài thi này
+    const allAttempts = await prisma.testAttempt.findMany({
+      where: {
+        testId: testId,
+        status: { in: ["SUBMITTED", "GRADED", "EXPIRED"] },
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            fullName: true,
+            username: true,
+            class: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+        responses: {
+          select: {
+            questionId: true,
+            isCorrect: true,
+            scoreGiven: true,
+          },
+        },
+      },
+      orderBy: [
+        { totalScore: "desc" },
+        { submittedAt: "desc" },
+      ],
+    });
+
+    // 3. Lọc người tham gia DISTINCT (mỗi học sinh chỉ lấy bài có điểm cao nhất)
+    const userAttemptsMap = new Map();
+
+    for (const att of allAttempts) {
+      const uId = att.userId;
+      if (!userAttemptsMap.has(uId)) {
+        userAttemptsMap.set(uId, {
+          user: att.user,
+          allAttempts: [],
+          bestAttempt: att,
+        });
+      }
+      const entry = userAttemptsMap.get(uId);
+      entry.allAttempts.push(att);
+
+      const currentBestScore = Number(entry.bestAttempt.totalScore) || 0;
+      const thisScore = Number(att.totalScore) || 0;
+      if (thisScore > currentBestScore) {
+        entry.bestAttempt = att;
+      }
+    }
+
+    const totalParticipants = userAttemptsMap.size;
+    const totalAttemptsCount = allAttempts.length;
+
+    // 4. Xử lý danh sách thí sinh và bảng xếp hạng
+    const participants = [];
+    const scoreDistributionBuckets = [
+      { key: "poor", range: "0 - 1.9", label: "Kém (< 2.0)", count: 0, percentage: 0, color: "#ef4444" },
+      { key: "weak", range: "2.0 - 4.9", label: "Yếu (2.0 - 4.9)", count: 0, percentage: 0, color: "#f97316" },
+      { key: "average", range: "5.0 - 6.4", label: "Trung bình (5.0 - 6.4)", count: 0, percentage: 0, color: "#eab308" },
+      { key: "good", range: "6.5 - 7.9", label: "Khá (6.5 - 7.9)", count: 0, percentage: 0, color: "#3b82f6" },
+      { key: "very_good", range: "8.0 - 8.9", label: "Giỏi (8.0 - 8.9)", count: 0, percentage: 0, color: "#6366f1" },
+      { key: "excellent", range: "9.0 - 10.0", label: "Xuất sắc (9.0 - 10.0)", count: 0, percentage: 0, color: "#10b981" },
+    ];
+
+    let totalScoreSum = 0;
+    let highestScore = 0;
+    let lowestScore = maxScore;
+    let passCount = 0;
+    let excellenceCount = 0;
+
+    // Phục vụ tính điểm theo kỹ năng
+    const sectionCorrectCounts = {};
+    const sectionTotalAnswers = {};
+    for (const sec of sectionStatsConfig) {
+      sectionCorrectCounts[sec.sectionId] = 0;
+      sectionTotalAnswers[sec.sectionId] = 0;
+    }
+
+    for (const [userId, entry] of userAttemptsMap.entries()) {
+      const best = entry.bestAttempt;
+      const rawScore = Number(best.totalScore) || 0;
+      const roundedRawScore = Math.round(rawScore * 100) / 100;
+      
+      // Quy chuẩn về thang điểm 10 để tính xếp loại chuẩn
+      const scoreOn10 = maxScore > 0 ? Math.round((rawScore / maxScore) * 10 * 10) / 10 : 0;
+      const percentage = maxScore > 0 ? Math.round((rawScore / maxScore) * 100 * 10) / 10 : 0;
+      const isPassed = scoreOn10 >= 5.0;
+
+      totalScoreSum += roundedRawScore;
+      if (roundedRawScore > highestScore) highestScore = roundedRawScore;
+      if (roundedRawScore < lowestScore) lowestScore = roundedRawScore;
+      if (isPassed) passCount++;
+      if (scoreOn10 >= 8.0) excellenceCount++;
+
+      // Phân loại vào bucket điểm số
+      if (scoreOn10 < 2.0) scoreDistributionBuckets[0].count++;
+      else if (scoreOn10 < 5.0) scoreDistributionBuckets[1].count++;
+      else if (scoreOn10 < 6.5) scoreDistributionBuckets[2].count++;
+      else if (scoreOn10 < 8.0) scoreDistributionBuckets[3].count++;
+      else if (scoreOn10 < 9.0) scoreDistributionBuckets[4].count++;
+      else scoreDistributionBuckets[5].count++;
+
+      // Tính thống kê theo từng phần thi của bài thi cao nhất
+      if (Array.isArray(best.responses)) {
+        for (const sec of sectionStatsConfig) {
+          const secQIds = new Set(sec.questionIds);
+          for (const resp of best.responses) {
+            if (secQIds.has(resp.questionId)) {
+              sectionTotalAnswers[sec.sectionId]++;
+              if (resp.isCorrect || (Number(resp.scoreGiven) || 0) > 0) {
+                sectionCorrectCounts[sec.sectionId]++;
+              }
+            }
+          }
+        }
+      }
+
+      let grade = "Kém";
+      if (scoreOn10 >= 9.0) grade = "Xuất sắc";
+      else if (scoreOn10 >= 8.0) grade = "Giỏi";
+      else if (scoreOn10 >= 6.5) grade = "Khá";
+      else if (scoreOn10 >= 5.0) grade = "Trung bình";
+      else if (scoreOn10 >= 2.0) grade = "Yếu";
+
+      participants.push({
+        userId: entry.user.id,
+        fullName: entry.user.fullName,
+        username: entry.user.username,
+        className: entry.user.class?.name || "Chưa phân lớp",
+        highestScore: roundedRawScore,
+        scoreOn10,
+        percentage,
+        isPassed,
+        grade,
+        attemptsCount: entry.allAttempts.length,
+        submittedAt: best.submittedAt,
+        attemptId: best.id,
+      });
+    }
+
+    // Sắp xếp bảng xếp hạng theo điểm cao nhất giảm dần
+    participants.sort((a, b) => {
+      if (b.highestScore !== a.highestScore) return b.highestScore - a.highestScore;
+      return new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime();
+    });
+
+    // Gán Rank 1, 2, 3...
+    participants.forEach((p, idx) => {
+      p.rank = idx + 1;
+    });
+
+    // Hoàn thiện % cho các distribution buckets
+    if (totalParticipants > 0) {
+      scoreDistributionBuckets.forEach((bucket) => {
+        bucket.percentage = Math.round((bucket.count / totalParticipants) * 100 * 10) / 10;
+      });
+    } else {
+      lowestScore = 0;
+    }
+
+    const averageScore = totalParticipants > 0 
+      ? Math.round((totalScoreSum / totalParticipants) * 100) / 100 
+      : 0;
+    const averageScoreOn10 = maxScore > 0 
+      ? Math.round((averageScore / maxScore) * 10 * 10) / 10 
+      : 0;
+    const passRate = totalParticipants > 0 
+      ? Math.round((passCount / totalParticipants) * 100 * 10) / 10 
+      : 0;
+    const excellenceRate = totalParticipants > 0 
+      ? Math.round((excellenceCount / totalParticipants) * 100 * 10) / 10 
+      : 0;
+
+    // 5. Thống kê theo từng kỹ năng / section
+    const skillStats = sectionStatsConfig.map((sec) => {
+      const totalAns = sectionTotalAnswers[sec.sectionId] || 0;
+      const correctAns = sectionCorrectCounts[sec.sectionId] || 0;
+      const accuracyRate = totalAns > 0 ? Math.round((correctAns / totalAns) * 100 * 10) / 10 : 0;
+
+      return {
+        sectionId: sec.sectionId,
+        skill: sec.skill,
+        order: sec.order,
+        questionCount: sec.questionCount,
+        maxScore: sec.maxScore,
+        accuracyRate,
+        totalAnswers: totalAns,
+        correctAnswers: correctAns,
+      };
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        test: {
+          id: test.id,
+          title: test.title,
+          description: test.description,
+          durationMin: test.durationMin,
+          isPublished: test.isPublished,
+          createdAt: test.createdAt,
+          maxScore,
+          totalQuestions,
+          sectionsCount: test.sections.length,
+        },
+        summary: {
+          totalParticipants, // Số thí sinh duy nhất
+          totalAttemptsCount, // Tổng số lượt nộp bài
+          averageScore, // Điểm trung bình (thang điểm gốc)
+          averageScoreOn10, // Điểm trung bình (thang điểm 10)
+          highestScore, // Điểm cao nhất
+          lowestScore, // Điểm thấp nhất
+          passCount, // Số lượng đạt
+          failCount: totalParticipants - passCount, // Số lượng chưa đạt
+          passRate, // Tỷ lệ đạt (%)
+          excellenceCount, // Số lượng giỏi/xuất sắc (>= 8.0)
+          excellenceRate, // Tỷ lệ giỏi/xuất sắc (%)
+        },
+        distribution: scoreDistributionBuckets,
+        skillStats,
+        participants,
+      },
+    });
+  } catch (error) {
+    console.error("Get test statistics error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Lỗi server khi thống kê kết quả bài thi",
+      error: error.message,
+    });
+  }
+};
+

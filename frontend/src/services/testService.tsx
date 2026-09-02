@@ -6,6 +6,7 @@ import type {
   TestDetailResponse,
   TestMutationResponse,
   TestListQueryParams,
+  TestStatsResponse,
 } from "@/types/admin-test.types.ts";
 
 const api = axios.create({
@@ -14,6 +15,15 @@ const api = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
+});
+
+// Tự động đính kèm token nếu lưu trong localStorage
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
 });
 
 export const testService = {
@@ -26,6 +36,12 @@ export const testService = {
   // Lấy chi tiết 1 bài test theo ID
   getById: async (id: string): Promise<TestDetailResponse> => {
     const { data } = await api.get<TestDetailResponse>(`/tests/${id}`);
+    return data;
+  },
+
+  // Lấy thống kê số liệu chi tiết cho giáo viên
+  getStats: async (id: string): Promise<TestStatsResponse> => {
+    const { data } = await api.get<TestStatsResponse>(`/tests/${id}/stats`);
     return data;
   },
 
@@ -71,3 +87,4 @@ export const testService = {
     return data;
   },
 };
+

@@ -8,7 +8,9 @@ import {
   togglePublishTest,
   getTestForTaking,
   submitTestAttempt,
+  getTestStats,
 } from "../controllers/testController.js";
+import { verifyAuth, requireRole } from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
@@ -24,6 +26,9 @@ router.get("/:id/take", getTestForTaking);
 // POST   /api/tests/:id/submit - Nộp bài thi và lưu vào DB (TestAttempt + Response)
 router.post("/:id/submit", submitTestAttempt);
 
+// GET    /api/tests/:id/stats  - Thống kê số liệu bài thi (chỉ dành cho giáo viên TEACHER)
+router.get("/:id/stats", verifyAuth, requireRole("TEACHER"), getTestStats);
+
 // GET    /api/tests/:id      - Lấy chi tiết 1 bài test
 router.get("/:id", getTestById);
 
@@ -37,3 +42,4 @@ router.delete("/:id", deleteTest);
 router.patch("/:id/publish", togglePublishTest);
 
 export default router;
+

@@ -19,6 +19,7 @@ import {
   AlertCircle,
   HelpCircle,
   Pencil,
+  BarChart3,
 } from "lucide-react";
 import {
   useTestById,
@@ -45,7 +46,9 @@ interface DetailTestPageProps {
   testId: string;
   onBack: () => void;
   onEdit?: (testId: string) => void;
+  onViewStats?: (testId: string) => void;
 }
+
 
 const SKILL_META: Record<
   SkillType,
@@ -91,7 +94,7 @@ const QTYPE_META: Record<
   },
 };
 
-export function DetailTestPage({ testId, onBack, onEdit }: DetailTestPageProps) {
+export function DetailTestPage({ testId, onBack, onEdit, onViewStats }: DetailTestPageProps) {
   const { data, isLoading, isError, refetch } = useTestById(testId);
   const togglePublishMutation = useTogglePublishTest();
   const deleteMutation = useDeleteTest();
@@ -187,6 +190,18 @@ export function DetailTestPage({ testId, onBack, onEdit }: DetailTestPageProps) 
           </Button>
 
           <div className="flex items-center gap-2">
+            {onViewStats && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onViewStats(test.id)}
+                className="h-8 gap-1.5 text-xs text-primary hover:text-primary hover:bg-primary/5 border-primary/30"
+              >
+                <BarChart3 className="w-3.5 h-3.5" />
+                Thống kê kết quả
+              </Button>
+            )}
+
             {onEdit && (
               <Button
                 variant="outline"

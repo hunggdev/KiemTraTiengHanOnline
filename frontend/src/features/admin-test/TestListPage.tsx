@@ -13,6 +13,7 @@ import {
   Loader2,
   MoreHorizontal,
   FileText,
+  BarChart3,
 } from "lucide-react";
 import {
   useTests,
@@ -65,14 +66,16 @@ interface TestCardProps {
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
   onTogglePublish: (id: string) => void;
+  onStats?: (id: string) => void;
   isDeleting: boolean;
   isTogglingPublish: boolean;
 }
 
-function TestCard({ test, onView, onEdit, onDelete, onTogglePublish, isDeleting, isTogglingPublish }: TestCardProps) {
+function TestCard({ test, onView, onEdit, onDelete, onTogglePublish, onStats, isDeleting, isTogglingPublish }: TestCardProps) {
   const createdAt = new Date(test.createdAt).toLocaleDateString("vi-VN", {
     day: "2-digit",
     month: "2-digit",
+
     year: "numeric",
   });
 
@@ -124,68 +127,83 @@ function TestCard({ test, onView, onEdit, onDelete, onTogglePublish, isDeleting,
         <p className="text-xs text-muted-foreground mb-4">{createdAt}</p>
 
         {/* Actions */}
-        <div className="flex items-center gap-2 pt-3 border-t">
+        <div className="grid grid-cols-4 gap-1.5 pt-3 border-t">
           <Button
             variant="outline"
             size="sm"
-            className="flex-1 text-xs h-8"
+            className="text-xs h-8 px-1.5"
             onClick={() => onView(String(test.id))}
+            title="Xem chi tiết đề thi"
           >
             <Eye className="w-3.5 h-3.5 mr-1" />
             Xem
           </Button>
+
           <Button
             variant="outline"
             size="sm"
-            className="flex-1 text-xs h-8"
+            className="text-xs h-8 px-1.5 text-primary hover:text-primary hover:bg-primary/5"
+            onClick={() => onStats?.(String(test.id))}
+            title="Thống kê phổ điểm và học sinh làm bài"
+          >
+            <BarChart3 className="w-3.5 h-3.5 mr-1" />
+            Thống kê
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-xs h-8 px-1.5"
             onClick={() => onEdit(String(test.id))}
+            title="Chỉnh sửa đề thi"
           >
             <Pencil className="w-3.5 h-3.5 mr-1" />
             Sửa
           </Button>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onTogglePublish(String(test.id))}
-            disabled={isTogglingPublish}
-            className="flex-1 text-xs h-8"
-            title={test.isPublished ? "Hủy xuất bản" : "Xuất bản"}
-          >
-            {isTogglingPublish ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : test.isPublished ? (
-              <Lock className="w-3.5 h-3.5 mr-1" />
-            ) : (
-              <Globe className="w-3.5 h-3.5 mr-1" />
-            )}
-            {test.isPublished ? "Hủy" : "Xuất bản"}
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onTogglePublish(String(test.id))}
+              disabled={isTogglingPublish}
+              className="flex-1 text-xs h-8 px-1"
+              title={test.isPublished ? "Hủy xuất bản" : "Xuất bản"}
+            >
+              {isTogglingPublish ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : test.isPublished ? (
+                <Lock className="w-3.5 h-3.5" />
+              ) : (
+                <Globe className="w-3.5 h-3.5" />
+              )}
+            </Button>
 
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="outline" size="sm" className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/5">
-                {isDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Xác nhận xóa bài thi</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Bạn sắp xóa bài thi <strong>"{test.title}"</strong>. Hành động này không thể hoàn tác và sẽ xóa toàn bộ phần thi, câu hỏi, và kết quả liên quan.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Hủy</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={() => onDelete(String(test.id))}
-                  className="bg-destructive hover:bg-destructive/90 text-white"
-                >
-                  Xóa bài thi
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/5 shrink-0">
+                  {isDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Xác nhận xóa bài thi</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Bạn sắp xóa bài thi <strong>"{test.title}"</strong>. Hành động này không thể hoàn tác và sẽ xóa toàn bộ phần thi, câu hỏi, và kết quả liên quan.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Hủy</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => onDelete(String(test.id))}
+                    className="bg-destructive hover:bg-destructive/90 text-white"
+                  >
+                    Xóa bài thi
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         </div>
       </div>
     </div>
@@ -199,9 +217,10 @@ interface TestListPageProps {
   onCreateNew?: () => void;
   onViewDetail?: (id: string) => void;
   onEditTest?: (id: string) => void;
+  onViewStats?: (id: string) => void;
 }
 
-export function TestListPage({ onCreateNew, onViewDetail, onEditTest }: TestListPageProps) {
+export function TestListPage({ onCreateNew, onViewDetail, onEditTest, onViewStats }: TestListPageProps) {
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 350);
   const [filterPublish, setFilterPublish] = useState<"all" | "published" | "draft">("all");
@@ -238,6 +257,7 @@ export function TestListPage({ onCreateNew, onViewDetail, onEditTest }: TestList
 
   const tests = data?.data ?? [];
   const pagination = data?.pagination;
+
 
   return (
     <div className="min-h-screen bg-background">
@@ -323,10 +343,11 @@ export function TestListPage({ onCreateNew, onViewDetail, onEditTest }: TestList
                   test={test}
                   onView={(id) => onViewDetail?.(id)}
                   onEdit={(id) => onEditTest?.(id)}
+                  onStats={(id) => onViewStats?.(id)}
                   onDelete={handleDelete}
                   onTogglePublish={handleTogglePublish}
-                  isDeleting={deletingId === test.id}
-                  isTogglingPublish={togglingId === test.id}
+                  isDeleting={deletingId === String(test.id)}
+                  isTogglingPublish={togglingId === String(test.id)}
                 />
               ))}
             </div>

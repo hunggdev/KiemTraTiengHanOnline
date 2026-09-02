@@ -101,3 +101,79 @@ export interface TestListQueryParams {
   isPublished?: boolean;
   createdBy?: string;
 }
+
+// ──────────────────────────────────────────────
+// Thống kê bài test (GET /api/tests/:id/stats)
+// ──────────────────────────────────────────────
+
+export interface ScoreDistributionBucket {
+  key: string;
+  range: string;
+  label: string;
+  count: number;
+  percentage: number;
+  color: string;
+}
+
+export interface SkillStatDTO {
+  sectionId: number | string;
+  skill: "LISTENING" | "SPEAKING" | "READING" | "WRITING";
+  order: number;
+  questionCount: number;
+  maxScore: number;
+  accuracyRate: number;
+  totalAnswers: number;
+  correctAnswers: number;
+}
+
+export interface ParticipantStatDTO {
+  userId: number | string;
+  fullName: string;
+  username: string;
+  className: string;
+  highestScore: number;
+  scoreOn10: number;
+  percentage: number;
+  isPassed: boolean;
+  grade: "Xuất sắc" | "Giỏi" | "Khá" | "Trung bình" | "Yếu" | "Kém";
+  attemptsCount: number;
+  submittedAt: string;
+  attemptId: number | string;
+  rank: number;
+}
+
+export interface TestStatsData {
+  test: {
+    id: number | string;
+    title: string;
+    description?: string | null;
+    durationMin: number;
+    isPublished: boolean;
+    createdAt: string;
+    maxScore: number;
+    totalQuestions: number;
+    sectionsCount: number;
+  };
+  summary: {
+    totalParticipants: number;
+    totalAttemptsCount: number;
+    averageScore: number;
+    averageScoreOn10: number;
+    highestScore: number;
+    lowestScore: number;
+    passCount: number;
+    failCount: number;
+    passRate: number;
+    excellenceCount: number;
+    excellenceRate: number;
+  };
+  distribution: ScoreDistributionBucket[];
+  skillStats: SkillStatDTO[];
+  participants: ParticipantStatDTO[];
+}
+
+export interface TestStatsResponse {
+  success: boolean;
+  data: TestStatsData;
+}
+

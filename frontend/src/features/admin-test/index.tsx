@@ -3,8 +3,9 @@ import { CreateTestPage } from "./CreateTestPage.tsx";
 import { TestListPage } from "./TestListPage.tsx";
 import { DetailTestPage } from "./DetailTestPage.tsx";
 import { EditTestPage } from "./EditTestPage.tsx";
+import { StatsChartPage } from "./StatsChartPage.tsx";
 
-type View = "list" | "create" | "detail" | "edit";
+type View = "list" | "create" | "detail" | "edit" | "stats";
 
 /**
  * AdminTestFeature — entry point for admin test management.
@@ -24,6 +25,11 @@ export function AdminTestFeature() {
     setView("edit");
   };
 
+  const handleViewStats = (testId: string) => {
+    setSelectedTestId(testId);
+    setView("stats");
+  };
+
   const handleBackToList = () => {
     setSelectedTestId(null);
     setView("list");
@@ -36,6 +42,7 @@ export function AdminTestFeature() {
           onCreateNew={() => setView("create")}
           onViewDetail={handleViewDetail}
           onEditTest={handleEditTest}
+          onViewStats={handleViewStats}
         />
       )}
 
@@ -59,6 +66,7 @@ export function AdminTestFeature() {
           testId={selectedTestId}
           onBack={handleBackToList}
           onEdit={handleEditTest}
+          onViewStats={handleViewStats}
         />
       )}
 
@@ -67,6 +75,13 @@ export function AdminTestFeature() {
           testId={selectedTestId}
           onBack={handleBackToList}
           onSuccess={handleBackToList}
+        />
+      )}
+
+      {view === "stats" && selectedTestId && (
+        <StatsChartPage
+          testId={selectedTestId}
+          onBack={handleBackToList}
         />
       )}
     </>
@@ -79,3 +94,5 @@ export { EditTestPage } from "./EditTestPage.tsx";
 export { TestListPage } from "./TestListPage.tsx";
 export { DetailTestPage } from "./DetailTestPage.tsx";
 export { SectionBuilder } from "./SectionBuilder.tsx";
+export { StatsChartPage } from "./StatsChartPage.tsx";
+
