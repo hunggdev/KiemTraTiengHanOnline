@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Upload,
   FileText,
@@ -12,11 +12,10 @@ import {
   Eye,
   Plus,
   Loader2,
-  HelpCircle,
+  Clock,
   BookOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
-import { Input } from "@/components/ui/input.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
 import {
   Dialog,
@@ -26,7 +25,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog.tsx";
 import { useCreateTest } from "@/stores/useTestStore.ts";
-import type { CreateTestPayload, CreateSectionPayload, CreateQuestionPayload } from "@/types/admin-test.types.ts";
+import type { CreateTestPayload, CreateQuestionPayload } from "@/types/admin-test.types.ts";
 
 interface QuickImportTestModalProps {
   open: boolean;
@@ -160,13 +159,18 @@ export function parseTextToTestPayload(rawText: string): {
   for (const line of lines) {
     const trimmed = line.trim();
     // Bỏ qua dòng header metadata
-    if (trimmed.startsWith("[TIÊU ĐỀ]:") || trimmed.startsWith("[THỜI GIAN]:") || trimmed.startsWith("[KỸ NĂNG]:") ||
-        trimmed.startsWith("[TITLE]:") || trimmed.startsWith("[DURATION]:") || trimmed.startsWith("[SKILL]:")) {
+    if (
+      trimmed.startsWith("[TIÊU ĐỀ]:") ||
+      trimmed.startsWith("[THỜI GIAN]:") ||
+      trimmed.startsWith("[KỸ NĂNG]:") ||
+      trimmed.startsWith("[TITLE]:") ||
+      trimmed.startsWith("[DURATION]:") ||
+      trimmed.startsWith("[SKILL]:")
+    ) {
       continue;
     }
 
-    const isQuestionStart =
-      /^(câu\s*\d+[:.]|\d+[:.]|q\d+[:.])/i.test(trimmed);
+    const isQuestionStart = /^(câu\s*\d+[:.]|\d+[:.]|q\d+[:.])/i.test(trimmed);
 
     if (isQuestionStart) {
       if (currentBlock.length > 0) {
@@ -184,7 +188,10 @@ export function parseTextToTestPayload(rawText: string): {
   const parsedQuestions: CreateQuestionPayload[] = [];
 
   rawQuestionsBlocks.forEach((block, index) => {
-    const bLines = block.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    const bLines = block
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean);
     if (bLines.length === 0) return;
 
     let content = "";
@@ -228,7 +235,7 @@ export function parseTextToTestPayload(rawText: string): {
     }
 
     if (options.length < 2) {
-      errors.push(`Câu ${index + 1} (${content.slice(0, 25)}...): Cần ít nhất 2 phương án lựa chọn (A, B...)`);
+      errors.push(`Câu ${index + 1} (${content.slice(0, 25)}...): Cần ít nhất 2 phương án (A, B...)`);
       return;
     }
 
@@ -291,16 +298,16 @@ export function QuickImportTestModal({
 
   const createTestMutation = useCreateTest();
 
-  // Tự động phân tích nội dung khi người dùng gõ
-  const handleParse = () => {
-    if (tab === "text") {
-      const res = parseTextToTestPayload(textContent);
+  // Tự động phân tích nội dung khi mở modal hoặc thay đổi nội dung
+  const runParser = (currentTab: "text" | "json", text: string, json: string) => {
+    if (currentTab === "text") {
+      const res = parseTextToTestPayload(text);
       setPreviewData(res.payload);
       setParseErrors(res.errors);
       setQuestionsCount(res.questionsCount);
     } else {
       try {
-        const parsed = JSON.parse(jsonContent);
+        const parsed = JSON.parse(json);
         if (!parsed.title || !parsed.sections) {
           throw new Error("JSON phải chứa thuộc tính 'title' và mảng 'sections'");
         }
@@ -319,6 +326,12 @@ export function QuickImportTestModal({
     }
   };
 
+  useEffect(() => {
+    if (open) {
+      runParser(tab, textContent, jsonContent);
+    }
+  }, [open, tab, textContent, jsonContent]);
+
   // Upload file từ máy tính
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -326,31 +339,17 @@ export function QuickImportTestModal({
 
     const reader = new FileReader();
     reader.onload = (event) => {
-      const text = event.target?.result as string;
-      if (!text) return;
+      const content = event.target?.result as string;
+      if (!content) return;
 
       if (file.name.endsWith(".json")) {
         setTab("json");
-        setJsonContent(text);
-        try {
-          const parsed = JSON.parse(text);
-          setPreviewData(parsed);
-          setParseErrors([]);
-          let totalQ = 0;
-          parsed.sections?.forEach((sec: any) => {
-            totalQ += (sec.questions || []).length;
-          });
-          setQuestionsCount(totalQ);
-        } catch (err: any) {
-          setParseErrors([`File JSON lỗi: ${err.message}`]);
-        }
+        setJsonContent(content);
+        runParser("json", textContent, content);
       } else {
         setTab("text");
-        setTextContent(text);
-        const res = parseTextToTestPayload(text);
-        setPreviewData(res.payload);
-        setParseErrors(res.errors);
-        setQuestionsCount(res.questionsCount);
+        setTextContent(content);
+        runParser("text", content, jsonContent);
       }
     };
     reader.readAsText(file, "UTF-8");
@@ -383,10 +382,6 @@ export function QuickImportTestModal({
       if (tab === "text") {
         const res = parseTextToTestPayload(textContent);
         finalPayload = res.payload;
-        if (!finalPayload) {
-          alert("Không thể phân tích đề thi. Vui lòng kiểm tra lại định dạng!");
-          return;
-        }
       } else {
         try {
           finalPayload = JSON.parse(jsonContent);
@@ -416,13 +411,16 @@ export function QuickImportTestModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-6 overflow-hidden">
-        <DialogHeader className="pb-3 border-b">
-          <div className="flex items-center justify-between">
+      <DialogContent
+        showCloseButton={true}
+        className="w-[95vw] sm:max-w-4xl md:max-w-5xl lg:max-w-6xl max-h-[92vh] flex flex-col p-4 sm:p-6 overflow-hidden rounded-2xl"
+      >
+        <DialogHeader className="pb-3 border-b space-y-3 shrink-0">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pr-6">
             <div>
-              <DialogTitle className="text-xl font-bold flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-primary" />
-                Tạo nhanh Đề thi từ Văn bản / File
+              <DialogTitle className="text-lg sm:text-xl font-bold flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-primary shrink-0" />
+                <span>Tạo nhanh Đề thi từ Văn bản / File</span>
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground mt-0.5">
                 Dán nội dung câu hỏi trắc nghiệm hoặc tải file .txt / .json để hệ thống tự động nhận diện và tạo bài thi ngay lập tức.
@@ -430,12 +428,12 @@ export function QuickImportTestModal({
             </div>
 
             {/* Template Download Actions */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => handleDownloadTemplate(tab)}
-                className="h-8 text-xs gap-1.5 rounded-lg cursor-pointer"
+                className="h-8 text-xs gap-1.5 rounded-lg cursor-pointer whitespace-nowrap"
                 title="Tải file mẫu về máy"
               >
                 <Download className="w-3.5 h-3.5" />
@@ -444,16 +442,19 @@ export function QuickImportTestModal({
             </div>
           </div>
 
-          {/* Mode Tabs */}
-          <div className="flex items-center justify-between pt-2">
+          {/* Mode Tabs and Upload button */}
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
             <div className="flex items-center gap-1.5 bg-muted p-1 rounded-xl border text-xs">
               <button
+                type="button"
                 onClick={() => {
                   setTab("text");
                   setParseErrors([]);
                 }}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold transition-all cursor-pointer ${
-                  tab === "text" ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+                  tab === "text"
+                    ? "bg-background text-foreground shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 <FileText className="w-3.5 h-3.5 text-primary" />
@@ -461,12 +462,15 @@ export function QuickImportTestModal({
               </button>
 
               <button
+                type="button"
                 onClick={() => {
                   setTab("json");
                   setParseErrors([]);
                 }}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold transition-all cursor-pointer ${
-                  tab === "json" ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+                  tab === "json"
+                    ? "bg-background text-foreground shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 <Code2 className="w-3.5 h-3.5 text-indigo-500" />
@@ -488,26 +492,25 @@ export function QuickImportTestModal({
           </div>
         </DialogHeader>
 
-        {/* Modal Body */}
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-5 py-4 overflow-y-auto flex-1">
+        {/* Modal Body: 2 Columns with independent scrolling */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 py-3 flex-1 overflow-hidden min-h-0">
           {/* Left Column: Editor */}
-          <div className="md:col-span-7 flex flex-col space-y-2">
-            <div className="flex items-center justify-between text-xs">
+          <div className="md:col-span-7 flex flex-col space-y-2 min-h-[260px] md:min-h-0 overflow-hidden">
+            <div className="flex items-center justify-between text-xs shrink-0">
               <span className="font-semibold text-foreground">
                 {tab === "text" ? "Nhập nội dung câu hỏi trắc nghiệm:" : "Nội dung JSON bài thi:"}
               </span>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleCopySample}
-                  className="text-muted-foreground hover:text-foreground flex items-center gap-1 cursor-pointer transition-colors"
-                >
-                  {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copied ? "Đã copy mẫu" : "Copy mẫu chuẩn"}</span>
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={handleCopySample}
+                className="text-muted-foreground hover:text-foreground flex items-center gap-1 cursor-pointer transition-colors"
+              >
+                {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                <span>{copied ? "Đã copy mẫu" : "Copy mẫu chuẩn"}</span>
+              </button>
             </div>
 
-            <div className="relative flex-1 min-h-[280px]">
+            <div className="relative flex-1 min-h-0 border rounded-xl overflow-hidden bg-background">
               <textarea
                 value={tab === "text" ? textContent : jsonContent}
                 onChange={(e) => {
@@ -519,31 +522,21 @@ export function QuickImportTestModal({
                     ? "Dán nội dung câu hỏi tại đây theo mẫu:\n\nCâu 1: Câu hỏi là gì?\nA. Đáp án 1\nB. Đáp án 2\nĐáp án: A"
                     : "Dán cấu trúc JSON tại đây..."
                 }
-                className="w-full h-full p-3 font-mono text-xs rounded-xl border bg-background resize-none focus:outline-none focus:ring-2 focus:ring-primary/40 leading-relaxed"
+                className="w-full h-full p-3 font-mono text-xs bg-transparent resize-none focus:outline-none focus:ring-1 focus:ring-primary/40 leading-relaxed overflow-y-auto"
               />
             </div>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleParse}
-              className="text-xs h-8 rounded-lg gap-1.5 font-semibold text-primary border-primary/30 hover:bg-primary/5 cursor-pointer"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              Kiểm tra & Phân tích câu hỏi
-            </Button>
           </div>
 
           {/* Right Column: Live Preview */}
-          <div className="md:col-span-5 flex flex-col space-y-3 bg-muted/20 border rounded-xl p-4 overflow-y-auto">
-            <div className="flex items-center justify-between pb-2 border-b">
+          <div className="md:col-span-5 flex flex-col space-y-3 bg-muted/20 border rounded-xl p-3 sm:p-4 overflow-hidden min-h-0">
+            <div className="flex items-center justify-between pb-2 border-b shrink-0">
               <span className="font-bold text-xs text-foreground flex items-center gap-1.5">
                 <Eye className="w-4 h-4 text-primary" />
-                Xem trước đề thi nhận diện
+                Xem trước nhận diện
               </span>
               <Badge
                 variant={questionsCount > 0 ? "default" : "secondary"}
-                className={`text-xs ${questionsCount > 0 ? "bg-emerald-600 text-white" : ""}`}
+                className={`text-xs ${questionsCount > 0 ? "bg-emerald-600 text-white font-semibold" : ""}`}
               >
                 {questionsCount} câu hỏi
               </Badge>
@@ -551,12 +544,12 @@ export function QuickImportTestModal({
 
             {/* Error alerts if any */}
             {parseErrors.length > 0 && (
-              <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-xs space-y-1">
+              <div className="p-2.5 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-xs space-y-1 shrink-0">
                 <div className="font-bold flex items-center gap-1">
                   <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                   Cần lưu ý định dạng:
                 </div>
-                {parseErrors.slice(0, 4).map((err, i) => (
+                {parseErrors.slice(0, 3).map((err, i) => (
                   <div key={i} className="text-[11px] leading-tight">
                     • {err}
                   </div>
@@ -566,67 +559,81 @@ export function QuickImportTestModal({
 
             {/* Preview Test Details */}
             {previewData ? (
-              <div className="space-y-3 text-xs">
-                <div className="p-3 rounded-xl bg-card border space-y-1.5">
-                  <div className="font-bold text-foreground text-sm">{previewData.title}</div>
-                  <div className="flex items-center gap-2 text-muted-foreground text-[11px]">
-                    <span>⏱ {previewData.durationMin} phút</span>
+              <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 min-h-0">
+                <div className="p-3 rounded-xl bg-card border space-y-1.5 shadow-2xs">
+                  <div className="font-bold text-foreground text-xs sm:text-sm line-clamp-2">
+                    {previewData.title}
+                  </div>
+                  <div className="flex items-center gap-2 text-muted-foreground text-[11px] flex-wrap">
+                    <span className="flex items-center gap-1 font-mono">
+                      <Clock className="w-3 h-3" />
+                      {previewData.durationMin} phút
+                    </span>
                     <span>•</span>
-                    <span>📚 {previewData.sections?.[0]?.skill || "READING"}</span>
+                    <span className="flex items-center gap-1 font-medium">
+                      <BookOpen className="w-3 h-3" />
+                      {previewData.sections?.[0]?.skill || "READING"}
+                    </span>
                     <span>•</span>
-                    <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Tự động xuất bản</span>
+                    <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                      Tự động xuất bản
+                    </span>
                   </div>
                 </div>
 
                 {/* Sample questions preview */}
-                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                  {previewData.sections?.flatMap((s) => s.questions || []).slice(0, 5).map((q, idx) => (
-                    <div key={idx} className="p-2.5 rounded-lg bg-card border space-y-1 text-[11px]">
-                      <div className="font-semibold text-foreground">
-                        <span className="text-primary font-bold">Câu {q.order || idx + 1}: </span>
-                        {q.content}
+                <div className="space-y-2">
+                  {previewData.sections
+                    ?.flatMap((s) => s.questions || [])
+                    .map((q, idx) => (
+                      <div
+                        key={idx}
+                        className="p-2.5 rounded-lg bg-card border space-y-1.5 text-[11px] shadow-2xs"
+                      >
+                        <div className="font-semibold text-foreground leading-snug">
+                          <span className="text-primary font-bold">Câu {q.order || idx + 1}: </span>
+                          {q.content}
+                        </div>
+                        <div className="grid grid-cols-2 gap-1 text-[10px] text-muted-foreground pt-0.5">
+                          {q.options?.map((opt: any) => (
+                            <div
+                              key={opt.label}
+                              className={`p-1.5 rounded border truncate ${
+                                opt.label === q.correctAnswer
+                                  ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-bold"
+                                  : "bg-muted/30"
+                              }`}
+                            >
+                              <span className="font-bold mr-1">{opt.label}.</span>
+                              {opt.content}
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-1 text-[10px] text-muted-foreground pt-0.5">
-                        {q.options?.map((opt: any) => (
-                          <div
-                            key={opt.label}
-                            className={`p-1 rounded border ${
-                              opt.label === q.correctAnswer
-                                ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-bold"
-                                : "bg-muted/40"
-                            }`}
-                          >
-                            {opt.label}. {opt.content}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-
-                  {questionsCount > 5 && (
-                    <div className="text-center text-[10px] text-muted-foreground italic py-1">
-                      ... và {questionsCount - 5} câu hỏi khác
-                    </div>
-                  )}
+                    ))}
                 </div>
               </div>
             ) : (
               <div className="flex-1 flex flex-col items-center justify-center text-center p-6 text-muted-foreground">
-                <FileText className="w-8 h-8 mb-2 text-muted-foreground/50" />
-                <p className="text-xs">Bấm <strong>"Kiểm tra & Phân tích câu hỏi"</strong> để xem trước danh sách câu hỏi được tạo.</p>
+                <FileText className="w-8 h-8 mb-2 text-muted-foreground/40" />
+                <p className="text-xs">
+                  Nhập nội dung câu hỏi hoặc dán dữ liệu để xem trước danh sách câu hỏi.
+                </p>
               </div>
             )}
           </div>
         </div>
 
         {/* Modal Footer */}
-        <div className="pt-3 border-t flex items-center justify-between">
+        <div className="pt-3 border-t flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
           <div className="text-xs text-muted-foreground flex items-center gap-1.5">
-            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-            <span>Đề thi sẽ được tạo ngay với {questionsCount > 0 ? questionsCount : "..."} câu hỏi trắc nghiệm</span>
+            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+            <span>
+              Đề thi sẽ được tạo ngay với <strong>{questionsCount}</strong> câu hỏi trắc nghiệm
+            </span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
             <Button
               variant="outline"
               size="sm"
@@ -637,7 +644,7 @@ export function QuickImportTestModal({
             </Button>
             <Button
               onClick={handleSubmit}
-              disabled={createTestMutation.isPending || (questionsCount === 0 && !previewData)}
+              disabled={createTestMutation.isPending || questionsCount === 0 || !previewData}
               className="bg-primary text-primary-foreground font-semibold text-xs rounded-xl gap-1.5 cursor-pointer shadow-xs"
             >
               {createTestMutation.isPending ? (
@@ -648,7 +655,7 @@ export function QuickImportTestModal({
               ) : (
                 <>
                   <Plus className="w-3.5 h-3.5" />
-                  Tạo bài thi ngay
+                  Tạo bài thi ngay ({questionsCount} câu)
                 </>
               )}
             </Button>
