@@ -127,61 +127,75 @@ function TestCard({ test, onView, onEdit, onDelete, onTogglePublish, onStats, is
         <p className="text-xs text-muted-foreground mb-4">{createdAt}</p>
 
         {/* Actions */}
-        <div className="grid grid-cols-4 gap-1.5 pt-3 border-t">
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-xs h-8 px-1.5"
-            onClick={() => onView(String(test.id))}
-            title="Xem chi tiết đề thi"
-          >
-            <Eye className="w-3.5 h-3.5 mr-1" />
-            Xem
-          </Button>
+        <div className="space-y-2 pt-3 border-t">
+          {/* Main Actions: Xem & Thống kê */}
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs h-8.5 rounded-lg justify-center font-medium cursor-pointer"
+              onClick={() => onView(String(test.id))}
+            >
+              <Eye className="w-3.5 h-3.5 mr-1.5 shrink-0" />
+              <span>Xem chi tiết</span>
+            </Button>
 
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-xs h-8 px-1.5 text-primary hover:text-primary hover:bg-primary/5"
-            onClick={() => onStats?.(String(test.id))}
-            title="Thống kê phổ điểm và học sinh làm bài"
-          >
-            <BarChart3 className="w-3.5 h-3.5 mr-1" />
-            Thống kê
-          </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs h-8.5 rounded-lg justify-center font-semibold text-primary hover:text-primary hover:bg-primary/5 border-primary/30 cursor-pointer bg-primary/[0.02]"
+              onClick={() => onStats?.(String(test.id))}
+            >
+              <BarChart3 className="w-3.5 h-3.5 mr-1.5 shrink-0" />
+              <span>Thống kê</span>
+            </Button>
+          </div>
 
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-xs h-8 px-1.5"
-            onClick={() => onEdit(String(test.id))}
-            title="Chỉnh sửa đề thi"
-          >
-            <Pencil className="w-3.5 h-3.5 mr-1" />
-            Sửa
-          </Button>
+          {/* Secondary Actions: Sửa, Xuất bản, Xóa */}
+          <div className="flex items-center gap-1.5">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1 text-xs h-8 rounded-lg justify-center text-muted-foreground hover:text-foreground cursor-pointer"
+              onClick={() => onEdit(String(test.id))}
+            >
+              <Pencil className="w-3.5 h-3.5 mr-1.5 shrink-0" />
+              <span>Sửa</span>
+            </Button>
 
-          <div className="flex items-center gap-1">
             <Button
               variant="outline"
               size="sm"
               onClick={() => onTogglePublish(String(test.id))}
               disabled={isTogglingPublish}
-              className="flex-1 text-xs h-8 px-1"
-              title={test.isPublished ? "Hủy xuất bản" : "Xuất bản"}
+              className={`text-xs h-8 px-2.5 rounded-lg gap-1.5 cursor-pointer shrink-0 ${
+                test.isPublished ? "text-emerald-600 dark:text-emerald-400 border-emerald-500/30" : "text-muted-foreground"
+              }`}
+              title={test.isPublished ? "Đang xuất bản - Nhấn để ẩn" : "Bản nháp - Nhấn để xuất bản"}
             >
               {isTogglingPublish ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
               ) : test.isPublished ? (
-                <Lock className="w-3.5 h-3.5" />
+                <>
+                  <Globe className="w-3.5 h-3.5 text-emerald-500" />
+                  <span>Đã đăng</span>
+                </>
               ) : (
-                <Globe className="w-3.5 h-3.5" />
+                <>
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>Bản nháp</span>
+                </>
               )}
             </Button>
 
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/5 shrink-0">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 w-8 p-0 rounded-lg text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30 shrink-0 cursor-pointer"
+                  title="Xóa bài thi"
+                >
                   {isDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                 </Button>
               </AlertDialogTrigger>
