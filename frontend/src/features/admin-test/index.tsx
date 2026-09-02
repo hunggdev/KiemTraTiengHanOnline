@@ -95,4 +95,6 @@ export { TestListPage } from "./TestListPage.tsx";
 export { DetailTestPage } from "./DetailTestPage.tsx";
 export { SectionBuilder } from "./SectionBuilder.tsx";
 export { StatsChartPage } from "./StatsChartPage.tsx";
+export { QuickImportTestModal } from "./QuickImportTestModal.tsx";
+
 

@@ -14,6 +14,7 @@ import {
   MoreHorizontal,
   FileText,
   BarChart3,
+  Sparkles,
 } from "lucide-react";
 import {
   useTests,
@@ -21,6 +22,8 @@ import {
   useTogglePublishTest,
 } from "@/stores/useTestStore.ts";
 import type { TestListItemDTO, TestListQueryParams } from "@/types/admin-test.types.ts";
+import { QuickImportTestModal } from "./QuickImportTestModal.tsx";
+
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
@@ -271,14 +274,14 @@ export function TestListPage({ onCreateNew, onViewDetail, onEditTest, onViewStat
 
   const tests = data?.data ?? [];
   const pagination = data?.pagination;
-
+  const [isQuickImportOpen, setIsQuickImportOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-5xl mx-auto px-4 py-8">
 
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center">
               <FileText className="w-5 h-5 text-primary-foreground" />
@@ -290,11 +293,31 @@ export function TestListPage({ onCreateNew, onViewDetail, onEditTest, onViewStat
               </p>
             </div>
           </div>
-          <Button onClick={onCreateNew}>
-            <Plus className="w-4 h-4 mr-2" />
-            Tạo bài thi
-          </Button>
+
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <Button
+              variant="outline"
+              onClick={() => setIsQuickImportOpen(true)}
+              className="gap-1.5 rounded-xl cursor-pointer border-primary/30 text-primary hover:bg-primary/5 font-semibold text-xs sm:text-sm h-9 sm:h-10"
+            >
+              <Sparkles className="w-4 h-4 text-primary" />
+              Tạo nhanh từ File / Text
+            </Button>
+            <Button onClick={onCreateNew} className="rounded-xl cursor-pointer text-xs sm:text-sm h-9 sm:h-10">
+              <Plus className="w-4 h-4 mr-1.5" />
+              Tạo bài thi
+            </Button>
+          </div>
         </div>
+
+        {/* Quick Import Modal */}
+        <QuickImportTestModal
+          open={isQuickImportOpen}
+          onOpenChange={setIsQuickImportOpen}
+          onSuccess={(newId) => {
+            if (newId) onViewDetail?.(String(newId));
+          }}
+        />
 
         {/* Filters */}
         <div className="flex items-center gap-3 mb-6">
