@@ -1,0 +1,129 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  TEACHER
+  STUDENT
+}
+
+enum SkillType {
+  LISTENING
+  SPEAKING
+  READING
+  WRITING
+}
+
+enum QuestionType {
+  MULTIPLE_CHOICE
+  ESSAY          // tự luận - viết/nói
+  AUDIO_RESPONSE // ghi âm cho phần nói
+}
+
+model User {
+  id           Int           @id @default(autoincrement())
+  username     String        @unique
+  passwordHash String
+  fullName     String
+  role         Role          @default(STUDENT)
+  classId      Int?
+  class        Class?        @relation(fields: [classId], references: [id], onDelete: SetNull)
+  createdBy    String?       // id giáo viên tạo tài khoản
+  createdAt    DateTime      @default(now())
+  attempts     TestAttempt[]
+}
+
+model Class {
+  id      Int              @id @default(autoincrement())
+  name    String
+  users   User[]
+  tests   TestAssignment[]
+}
+
+model Test {
+  id          Int              @id @default(autoincrement())
+  title       String
+  description String?
+  durationMin Int              // tổng thời gian làm bài
+  sections    TestSection[]
+  assignments TestAssignment[]
+  createdBy   String
+  createdAt   DateTime         @default(now())
+  isPublished Boolean          @default(false)
+  attempts    TestAttempt[]
+}
+
+model TestSection {
+  id          Int         @id @default(autoincrement())
+  testId      Int
+  test        Test        @relation(fields: [testId], references: [id], onDelete: Cascade)
+  skill       SkillType
+  order       Int
+  durationMin Int?        // giới hạn riêng theo phần (tuỳ chọn)
+  questions   Question[]
+}
+
+model Question {
+  id            Int          @id @default(autoincrement())
+  sectionId     Int
+  section       TestSection  @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  type          QuestionType
+  order         Int
+  content       String       // text câu hỏi
+  audioUrl      String?      // file nghe (Supabase Storage)
+  imageUrl      String?
+  options       Option[]     // dùng cho MULTIPLE_CHOICE
+  correctAnswer String?      // đáp án đúng (id option hoặc text mẫu)
+  score         Float        @default(1)
+  responses     Response[]
+}
+
+model Option {
+  id         Int      @id @default(autoincrement())
+  questionId Int
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  label      String   // A, B, C, D
+  content    String
+}
+
+model TestAssignment {
+  id      Int      @id @default(autoincrement())
+  testId  Int
+  test    Test     @relation(fields: [testId], references: [id], onDelete: Cascade)
+  classId Int
+  class   Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  openAt  DateTime
+  closeAt DateTime
+}
+
+model TestAttempt {
+  id          Int        @id @default(autoincrement())
+  userId      Int
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  testId      Int
+  test        Test       @relation(fields: [testId], references: [id], onDelete: Cascade)
+  startedAt   DateTime   @default(now())
+  submittedAt DateTime?
+  status      String     @default("IN_PROGRESS") // IN_PROGRESS | SUBMITTED | GRADED | EXPIRED
+  totalScore  Float?
+  responses   Response[]
+}
+
+model Response {
+  id         Int         @id @default(autoincrement())
+  attemptId  Int
+  attempt    TestAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  questionId Int
+  question   Question    @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  answerText String?     // câu trả lời (trắc nghiệm: option id; tự luận: text)
+  audioUrl   String?     // file ghi âm phần nói
+  isCorrect  Boolean?    // auto-grade cho trắc nghiệm
+  scoreGiven Float?      // điểm chấm tay cho tự luận
+  gradedBy   String?
+  gradedAt   DateTime?
+  updatedAt  DateTime    @updatedAt // dùng cho autosave
+}
