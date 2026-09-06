@@ -57,6 +57,7 @@ export const signUp = async (req, res) => {
         fullName: fullName.trim(),
         role: "STUDENT", // Mặc định role STUDENT cho người dùng đăng ký
         classId: classId ?? null,
+        canAccessFlashcard: false,
       },
       select: {
         id: true,
@@ -64,6 +65,7 @@ export const signUp = async (req, res) => {
         fullName: true,
         role: true,
         classId: true,
+        canAccessFlashcard: true,
         createdAt: true,
       },
     });
@@ -157,6 +159,7 @@ export const signIn = async (req, res) => {
       fullName: user.fullName,
       role: user.role,
       classId: user.classId,
+      canAccessFlashcard: user.role === "TEACHER" ? true : Boolean(user.canAccessFlashcard),
       createdAt: user.createdAt,
     };
 
@@ -225,7 +228,14 @@ export const getMe = async (req, res) => {
         fullName: true,
         role: true,
         classId: true,
+        canAccessFlashcard: true,
         createdAt: true,
+        class: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
       },
     });
 
@@ -236,14 +246,152 @@ export const getMe = async (req, res) => {
       });
     }
 
+    const formattedUser = {
+      ...user,
+      canAccessFlashcard: user.role === "TEACHER" ? true : Boolean(user.canAccessFlashcard),
+    };
+
     return res.status(200).json({
       success: true,
-      data: user,
+      data: formattedUser,
     });
   } catch (error) {
     return res.status(401).json({
       success: false,
       message: "Phiên đăng nhập đã hết hạn hoặc không hợp lệ",
+    });
+  }
+};
+
+// 5. Lấy danh sách học sinh kèm trạng thái cấp quyền Flashcard (Dành cho TEACHER)
+export const getStudentsList = async (req, res) => {
+  try {
+    const { search, classId } = req.query;
+
+    const whereClause = {
+      role: "STUDENT",
+    };
+
+    if (classId) {
+      whereClause.classId = parseInt(classId, 10);
+    }
+
+    if (search && search.trim() !== "") {
+      whereClause.OR = [
+        { fullName: { contains: search.trim(), mode: "insensitive" } },
+        { username: { contains: search.trim(), mode: "insensitive" } },
+      ];
+    }
+
+    const students = await prisma.user.findMany({
+      where: whereClause,
+      select: {
+        id: true,
+        username: true,
+        fullName: true,
+        classId: true,
+        canAccessFlashcard: true,
+        createdAt: true,
+        class: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: { fullName: "asc" },
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: students,
+    });
+  } catch (error) {
+    console.error("Get students list error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Lỗi server khi lấy danh sách học sinh",
+      error: error.message,
+    });
+  }
+};
+
+// 6. Cấp hoặc thu hồi quyền Flashcard cho 1 học sinh (Dành cho TEACHER)
+export const updateFlashcardPermission = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const studentId = parseInt(id, 10);
+    const { canAccessFlashcard } = req.body;
+
+    if (isNaN(studentId)) {
+      return res.status(400).json({
+        success: false,
+        message: "ID học sinh không hợp lệ",
+      });
+    }
+
+    const updatedStudent = await prisma.user.update({
+      where: { id: studentId },
+      data: {
+        canAccessFlashcard: Boolean(canAccessFlashcard),
+      },
+      select: {
+        id: true,
+        username: true,
+        fullName: true,
+        canAccessFlashcard: true,
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: `Đã ${canAccessFlashcard ? "cấp quyền" : "thu hồi quyền"} Flashcard cho học sinh ${updatedStudent.fullName}`,
+      data: updatedStudent,
+    });
+  } catch (error) {
+    console.error("Update flashcard permission error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Lỗi server khi cập nhật quyền Flashcard",
+      error: error.message,
+    });
+  }
+};
+
+// 7. Cấp hoặc thu hồi quyền Flashcard hàng loạt (Dành cho TEACHER)
+export const batchUpdateFlashcardPermissions = async (req, res) => {
+  try {
+    const { studentIds, canAccessFlashcard } = req.body;
+
+    if (!Array.isArray(studentIds) || studentIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Danh sách studentIds là bắt buộc",
+      });
+    }
+
+    const parsedIds = studentIds.map((id) => parseInt(id, 10)).filter((id) => !isNaN(id));
+
+    await prisma.user.updateMany({
+      where: {
+        id: { in: parsedIds },
+        role: "STUDENT",
+      },
+      data: {
+        canAccessFlashcard: Boolean(canAccessFlashcard),
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: `Đã cập nhật quyền Flashcard thành công cho ${parsedIds.length} học sinh!`,
+    });
+  } catch (error) {
+    console.error("Batch update flashcard permissions error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Lỗi server khi cập nhật quyền Flashcard hàng loạt",
+      error: error.message,
     });
   }
 };

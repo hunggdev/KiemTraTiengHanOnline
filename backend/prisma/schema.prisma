@@ -25,16 +25,17 @@ enum QuestionType {
 }
 
 model User {
-  id           Int           @id @default(autoincrement())
-  username     String        @unique
-  passwordHash String
-  fullName     String
-  role         Role          @default(STUDENT)
-  classId      Int?
-  class        Class?        @relation(fields: [classId], references: [id], onDelete: SetNull)
-  createdBy    String?       // id giáo viên tạo tài khoản
-  createdAt    DateTime      @default(now())
-  attempts     TestAttempt[]
+  id                 Int           @id @default(autoincrement())
+  username           String        @unique
+  passwordHash       String
+  fullName           String
+  role               Role          @default(STUDENT)
+  classId            Int?
+  class              Class?        @relation(fields: [classId], references: [id], onDelete: SetNull)
+  canAccessFlashcard Boolean       @default(false) // Quyền sử dụng Flashcard được giáo viên cấp
+  createdBy          String?       // id giáo viên tạo tài khoản
+  createdAt          DateTime      @default(now())
+  attempts           TestAttempt[]
 }
 
 model Class {

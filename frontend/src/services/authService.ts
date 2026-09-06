@@ -4,6 +4,7 @@ import type {
   SignUpPayload,
   AuthResponse,
   UserDTO,
+  StudentPermissionDTO,
 } from "@/types/auth.types.ts";
 
 const api = axios.create({
@@ -57,5 +58,36 @@ export const authService = {
     const { data } = await api.get<{ success: boolean; data: UserDTO }>("/auth/me");
     return data;
   },
+
+  // Lấy danh sách học sinh (chỉ TEACHER)
+  getStudentsList: async (params?: { search?: string; classId?: number }): Promise<{ success: boolean; data: StudentPermissionDTO[] }> => {
+    const { data } = await api.get<{ success: boolean; data: StudentPermissionDTO[] }>("/auth/students", { params });
+    return data;
+  },
+
+  // Cập nhật quyền Flashcard cho 1 học sinh (chỉ TEACHER)
+  updateFlashcardPermission: async (
+    studentId: number | string,
+    canAccessFlashcard: boolean
+  ): Promise<{ success: boolean; message: string; data: StudentPermissionDTO }> => {
+    const { data } = await api.patch<{ success: boolean; message: string; data: StudentPermissionDTO }>(
+      `/auth/students/${studentId}/flashcard-permission`,
+      { canAccessFlashcard }
+    );
+    return data;
+  },
+
+  // Cập nhật quyền Flashcard hàng loạt (chỉ TEACHER)
+  batchUpdateFlashcardPermissions: async (
+    studentIds: (number | string)[],
+    canAccessFlashcard: boolean
+  ): Promise<{ success: boolean; message: string }> => {
+    const { data } = await api.post<{ success: boolean; message: string }>(
+      "/auth/students/flashcard-permissions",
+      { studentIds, canAccessFlashcard }
+    );
+    return data;
+  },
 };
+
 

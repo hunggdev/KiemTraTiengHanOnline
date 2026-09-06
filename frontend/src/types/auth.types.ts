@@ -6,6 +6,24 @@ export interface UserDTO {
   fullName: string;
   role: UserRole;
   classId?: string | null;
+  canAccessFlashcard?: boolean;
+  class?: {
+    id: number;
+    name: string;
+  } | null;
+  createdAt?: string;
+}
+
+export interface StudentPermissionDTO {
+  id: number;
+  username: string;
+  fullName: string;
+  classId?: number | null;
+  canAccessFlashcard: boolean;
+  class?: {
+    id: number;
+    name: string;
+  } | null;
   createdAt?: string;
 }
 

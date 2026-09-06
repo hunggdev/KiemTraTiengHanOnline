@@ -14,30 +14,59 @@ import {
   Languages,
   Eye,
   FileQuestion,
+  ShieldCheck,
+  Lock,
 } from "lucide-react";
 import { useFlashcardStore } from "@/stores/useFlashcardStore.ts";
+import { useAuthStore } from "@/stores/useAuthStore.ts";
 import type { FlashcardDeck } from "@/types/flashcard.types.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
 import { ImportDeckModal } from "./ImportDeckModal.tsx";
 import { DeckDetailModal } from "./DeckDetailModal.tsx";
+import { StudentPermissionModal } from "./StudentPermissionModal.tsx";
 
 interface FlashcardDeckListPageProps {
   onStartStudy: (deckId: string) => void;
 }
 
 export function FlashcardDeckListPage({ onStartStudy }: FlashcardDeckListPageProps) {
+  const { user } = useAuthStore();
   const { decks, deleteDeck, loadSampleDecksIfEmpty, importPreloadedSamples } = useFlashcardStore();
+
+  const isTeacher = user?.role === "TEACHER";
+  const canAccess = isTeacher || Boolean(user?.canAccessFlashcard);
 
   const [search, setSearch] = useState("");
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isPermissionModalOpen, setIsPermissionModalOpen] = useState(false);
   const [selectedDeckForDetail, setSelectedDeckForDetail] = useState<FlashcardDeck | null>(null);
 
   // Khởi tạo sample decks nếu chưa có bộ nào
   useEffect(() => {
     loadSampleDecksIfEmpty();
   }, [loadSampleDecksIfEmpty]);
+
+  // Nếu là học sinh và chưa được cấp quyền -> Hiện màn hình khoá
+  if (!canAccess) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-20 h-20 rounded-3xl bg-destructive/10 text-destructive flex items-center justify-center mb-5 shadow-xs">
+          <Lock className="w-10 h-10" />
+        </div>
+        <h2 className="text-2xl font-bold text-foreground mb-2">
+          Chưa được cấp quyền sử dụng Flashcard
+        </h2>
+        <p className="text-sm text-muted-foreground max-w-md mb-6 leading-relaxed">
+          Chức năng học Flashcard hiện chỉ dành cho Giáo viên hoặc Học sinh đã được Giáo viên cấp quyền truy cập. Vui lòng liên hệ giáo viên phụ trách của bạn để được kích hoạt quyền học nhé!
+        </p>
+        <Badge variant="outline" className="px-3 py-1 text-xs gap-1.5 bg-muted text-muted-foreground">
+          Tài khoản: {user?.fullName} (@{user?.username})
+        </Badge>
+      </div>
+    );
+  }
 
   const filteredDecks = decks.filter((d) => {
     if (!search.trim()) return true;
@@ -101,7 +130,7 @@ export function FlashcardDeckListPage({ onStartStudy }: FlashcardDeckListPagePro
           </div>
 
           {/* Actions Bar */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4 max-w-md mx-auto">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4 max-w-xl mx-auto flex-wrap">
             <Button
               onClick={() => setIsImportModalOpen(true)}
               className="w-full sm:w-auto rounded-xl gap-2 font-semibold shadow-xs cursor-pointer"
@@ -109,6 +138,17 @@ export function FlashcardDeckListPage({ onStartStudy }: FlashcardDeckListPagePro
               <Plus className="w-4 h-4" />
               <span>+ Nhập bộ thẻ mới (.xlsx, .csv)</span>
             </Button>
+
+            {isTeacher && (
+              <Button
+                variant="outline"
+                onClick={() => setIsPermissionModalOpen(true)}
+                className="w-full sm:w-auto rounded-xl gap-1.5 font-semibold text-primary border-primary/30 hover:bg-primary/5 cursor-pointer"
+              >
+                <ShieldCheck className="w-4 h-4 text-primary" />
+                <span>Cấp quyền học sinh</span>
+              </Button>
+            )}
 
             <Button
               variant="outline"
@@ -268,6 +308,13 @@ export function FlashcardDeckListPage({ onStartStudy }: FlashcardDeckListPagePro
           onStartStudy(deckId);
         }}
       />
+
+      {isTeacher && (
+        <StudentPermissionModal
+          isOpen={isPermissionModalOpen}
+          onClose={() => setIsPermissionModalOpen(false)}
+        />
+      )}
     </div>
   );
 }
