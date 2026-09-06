@@ -648,12 +648,20 @@ export const submitTestAttempt = async (req, res) => {
     totalScore = Math.round(totalScore * 100) / 100;
     maxScore = Math.round(maxScore * 100) / 100;
 
+    const hasEssayQuestions = allQuestions.some(
+      (q) => q.type === "ESSAY" || q.type === "AUDIO_RESPONSE"
+    );
+    const essayCount = allQuestions.filter(
+      (q) => q.type === "ESSAY" || q.type === "AUDIO_RESPONSE"
+    ).length;
+    const initialStatus = hasEssayQuestions ? "PENDING_GRADING" : "GRADED";
+
     // 4. Lưu TestAttempt và các Response vào cơ sở dữ liệu
     const attempt = await prisma.testAttempt.create({
       data: {
         userId: validUserId,
         testId: test.id,
-        status: "SUBMITTED",
+        status: initialStatus,
         submittedAt: new Date(),
         totalScore,
         responses: {
@@ -667,11 +675,16 @@ export const submitTestAttempt = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Nộp bài kiểm tra thành công",
+      message: hasEssayQuestions
+        ? "Đã nộp bài thành công! Phần tự luận đang chờ giáo viên chấm điểm."
+        : "Nộp bài kiểm tra thành công!",
       data: {
         attemptId: attempt.id,
         testId: test.id,
         testTitle: test.title,
+        status: attempt.status,
+        hasPendingEssay: hasEssayQuestions,
+        essayQuestionsCount: essayCount,
         totalScore,
         maxScore,
         percentage: maxScore > 0 ? Math.round((totalScore / maxScore) * 100) : 0,
@@ -758,7 +771,7 @@ export const getTestStats = async (req, res) => {
     const allAttempts = await prisma.testAttempt.findMany({
       where: {
         testId: testId,
-        status: { in: ["SUBMITTED", "GRADED", "EXPIRED"] },
+        status: { in: ["SUBMITTED", "PENDING_GRADING", "GRADED", "EXPIRED"] },
       },
       include: {
         user: {
@@ -988,6 +1001,502 @@ export const getTestStats = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Lỗi server khi thống kê kết quả bài thi",
+      error: error.message,
+    });
+  }
+};
+
+// 10. Lấy danh sách các bài làm của học sinh cho 1 bài kiểm tra (Dành cho Giáo viên)
+export const getTestAttempts = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const testId = parseInt(id, 10);
+    const { status, search } = req.query;
+
+    if (isNaN(testId)) {
+      return res.status(400).json({
+        success: false,
+        message: "ID bài kiểm tra không hợp lệ",
+      });
+    }
+
+    const test = await prisma.test.findUnique({
+      where: { id: testId },
+      include: {
+        sections: {
+          include: {
+            questions: {
+              select: {
+                id: true,
+                type: true,
+                score: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!test) {
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy bài kiểm tra",
+      });
+    }
+
+    const allQuestions = test.sections.flatMap((s) => s.questions);
+    const maxScore = allQuestions.reduce((sum, q) => sum + (Number(q.score) || 1), 0);
+    const essayQuestionIds = new Set(
+      allQuestions
+        .filter((q) => q.type === "ESSAY" || q.type === "AUDIO_RESPONSE")
+        .map((q) => q.id)
+    );
+    const hasEssay = essayQuestionIds.size > 0;
+
+    const GRADED_STATUSES = ["SUBMITTED", "PENDING_GRADING", "GRADED", "EXPIRED"];
+
+    const whereClause = {
+      testId: testId,
+      status: { in: GRADED_STATUSES },
+    };
+
+    if (status && status !== "ALL" && GRADED_STATUSES.includes(status)) {
+      whereClause.status = { in: [status] };
+    }
+
+    if (search && search.trim() !== "") {
+      whereClause.user = {
+        OR: [
+          { fullName: { contains: search.trim(), mode: "insensitive" } },
+          { username: { contains: search.trim(), mode: "insensitive" } },
+        ],
+      };
+    }
+
+    const attempts = await prisma.testAttempt.findMany({
+      where: whereClause,
+      include: {
+        user: {
+          select: {
+            id: true,
+            fullName: true,
+            username: true,
+            class: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+        responses: {
+          include: {
+            question: {
+              select: {
+                id: true,
+                type: true,
+                score: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { submittedAt: "desc" },
+    });
+
+    let pendingGradingCount = 0;
+    let gradedCount = 0;
+
+    const formattedAttempts = attempts.map((att) => {
+      let mcScore = 0;
+      let essayScore = 0;
+      let essayCount = 0;
+      let gradedEssayCount = 0;
+
+      for (const resp of att.responses) {
+        const isEssay = resp.question?.type === "ESSAY" || resp.question?.type === "AUDIO_RESPONSE";
+        if (isEssay) {
+          essayCount++;
+          if (resp.scoreGiven !== null && resp.scoreGiven !== undefined) {
+            gradedEssayCount++;
+            essayScore += Number(resp.scoreGiven) || 0;
+          }
+        } else {
+          mcScore += Number(resp.scoreGiven) || 0;
+        }
+      }
+
+      const needsGrading = essayCount > 0 && gradedEssayCount < essayCount;
+      if (needsGrading) {
+        pendingGradingCount++;
+      } else {
+        gradedCount++;
+      }
+
+      const totalScore = Number(att.totalScore) || 0;
+      const scoreOn10 = maxScore > 0 ? Math.round((totalScore / maxScore) * 10 * 10) / 10 : 0;
+
+      return {
+        id: att.id,
+        userId: att.userId,
+        fullName: att.user.fullName,
+        username: att.user.username,
+        className: att.user.class?.name || "Chưa phân lớp",
+        submittedAt: att.submittedAt,
+        status: att.status,
+        totalScore: Math.round(totalScore * 100) / 100,
+        scoreOn10,
+        maxScore: Math.round(maxScore * 100) / 100,
+        multipleChoiceScore: Math.round(mcScore * 100) / 100,
+        essayScore: Math.round(essayScore * 100) / 100,
+        essayQuestionsCount: essayCount,
+        gradedEssayCount,
+        needsGrading,
+      };
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        test: {
+          id: test.id,
+          title: test.title,
+          maxScore: Math.round(maxScore * 100) / 100,
+          totalQuestions: allQuestions.length,
+          hasEssay,
+          essayCount: essayQuestionIds.size,
+        },
+        summary: {
+          totalAttempts: attempts.length,
+          pendingGradingCount,
+          gradedCount,
+        },
+        attempts: formattedAttempts,
+      },
+    });
+  } catch (error) {
+    console.error("Get test attempts error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Lỗi server khi lấy danh sách bài làm",
+      error: error.message,
+    });
+  }
+};
+
+// 11. Lấy chi tiết một bài làm để giáo viên xem và chấm điểm
+export const getAttemptDetail = async (req, res) => {
+  try {
+    const { attemptId } = req.params;
+    const attId = parseInt(attemptId, 10);
+
+    if (isNaN(attId)) {
+      return res.status(400).json({
+        success: false,
+        message: "ID bài làm không hợp lệ",
+      });
+    }
+
+    const attempt = await prisma.testAttempt.findUnique({
+      where: { id: attId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            fullName: true,
+            username: true,
+            class: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+        test: {
+          include: {
+            sections: {
+              orderBy: { order: "asc" },
+              include: {
+                questions: {
+                  orderBy: { order: "asc" },
+                  include: {
+                    options: {
+                      orderBy: { label: "asc" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: true,
+      },
+    });
+
+    if (!attempt) {
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy bài làm",
+      });
+    }
+
+    const responseMap = new Map();
+    for (const r of attempt.responses) {
+      responseMap.set(r.questionId, r);
+    }
+
+    let maxScore = 0;
+    let autoMcScore = 0;
+    let manualEssayScore = 0;
+    let totalQuestions = 0;
+    let essayQuestionsCount = 0;
+    let gradedEssayCount = 0;
+
+    const sections = attempt.test.sections.map((sec) => {
+      const questions = sec.questions.map((q) => {
+        const qScore = Number(q.score) || 1;
+        maxScore += qScore;
+        totalQuestions++;
+
+        const resp = responseMap.get(q.id);
+        const isEssay = q.type === "ESSAY" || q.type === "AUDIO_RESPONSE";
+
+        if (isEssay) {
+          essayQuestionsCount++;
+          if (resp?.scoreGiven !== null && resp?.scoreGiven !== undefined) {
+            gradedEssayCount++;
+            manualEssayScore += Number(resp.scoreGiven) || 0;
+          }
+        } else {
+          autoMcScore += Number(resp?.scoreGiven) || 0;
+        }
+
+        return {
+          id: q.id,
+          order: q.order,
+          type: q.type,
+          content: q.content,
+          audioUrl: q.audioUrl,
+          imageUrl: q.imageUrl,
+          correctAnswer: q.correctAnswer,
+          score: qScore,
+          options: q.options,
+          response: resp
+            ? {
+                id: resp.id,
+                answerText: resp.answerText,
+                audioUrl: resp.audioUrl,
+                isCorrect: resp.isCorrect,
+                scoreGiven: resp.scoreGiven,
+                gradedBy: resp.gradedBy,
+                gradedAt: resp.gradedAt,
+              }
+            : null,
+        };
+      });
+
+      return {
+        id: sec.id,
+        skill: sec.skill,
+        order: sec.order,
+        durationMin: sec.durationMin,
+        questions,
+      };
+    });
+
+    const calculatedTotalScore = Math.round((autoMcScore + manualEssayScore) * 100) / 100;
+    const currentTotalScore = attempt.totalScore !== null ? Number(attempt.totalScore) : calculatedTotalScore;
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        attemptId: attempt.id,
+        status: attempt.status,
+        startedAt: attempt.startedAt,
+        submittedAt: attempt.submittedAt,
+        totalScore: Math.round(currentTotalScore * 100) / 100,
+        maxScore: Math.round(maxScore * 100) / 100,
+        scoreOn10: maxScore > 0 ? Math.round((currentTotalScore / maxScore) * 10 * 10) / 10 : 0,
+        autoMcScore: Math.round(autoMcScore * 100) / 100,
+        manualEssayScore: Math.round(manualEssayScore * 100) / 100,
+        totalQuestions,
+        essayQuestionsCount,
+        gradedEssayCount,
+        needsGrading: essayQuestionsCount > 0 && gradedEssayCount < essayQuestionsCount,
+        user: {
+          id: attempt.user.id,
+          fullName: attempt.user.fullName,
+          username: attempt.user.username,
+          className: attempt.user.class?.name || "Chưa phân lớp",
+        },
+        test: {
+          id: attempt.test.id,
+          title: attempt.test.title,
+          description: attempt.test.description,
+          durationMin: attempt.test.durationMin,
+        },
+        sections,
+      },
+    });
+  } catch (error) {
+    console.error("Get attempt detail error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Lỗi server khi lấy chi tiết bài làm",
+      error: error.message,
+    });
+  }
+};
+
+// 12. Chấm điểm bài làm tự luận cho học sinh và tự động tổng kết điểm
+export const gradeAttempt = async (req, res) => {
+  try {
+    const { attemptId } = req.params;
+    const attId = parseInt(attemptId, 10);
+    const { grades = [] } = req.body; // grades: [{ questionId, scoreGiven }]
+
+    if (isNaN(attId)) {
+      return res.status(400).json({
+        success: false,
+        message: "ID bài làm không hợp lệ",
+      });
+    }
+
+    if (!Array.isArray(grades) || grades.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Danh sách điểm chấm không hợp lệ",
+      });
+    }
+
+    // 1. Kiểm tra attempt
+    const attempt = await prisma.testAttempt.findUnique({
+      where: { id: attId },
+      include: {
+        responses: {
+          include: {
+            question: true,
+          },
+        },
+        test: {
+          include: {
+            sections: {
+              include: {
+                questions: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!attempt) {
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy bài làm cần chấm",
+      });
+    }
+
+    // Lấy tên giáo viên chấm
+    let teacherName = req.user?.fullName || req.user?.username || "Giáo viên";
+
+    // 2. Cập nhật điểm từng câu hỏi được chấm
+    const allQuestions = attempt.test.sections.flatMap((s) => s.questions);
+    const questionMap = new Map(allQuestions.map((q) => [q.id, q]));
+    const responseMap = new Map(attempt.responses.map((r) => [r.questionId, r]));
+
+    await prisma.$transaction(async (tx) => {
+      for (const g of grades) {
+        const qId = parseInt(g.questionId, 10);
+        const q = questionMap.get(qId);
+        if (!q) continue;
+
+        const maxScore = Number(q.score) || 1;
+        let scoreGiven = Number(g.scoreGiven);
+        if (isNaN(scoreGiven) || scoreGiven < 0) scoreGiven = 0;
+        if (scoreGiven > maxScore) scoreGiven = maxScore;
+        scoreGiven = Math.round(scoreGiven * 100) / 100;
+
+        const isCorrect = scoreGiven > 0;
+        const existingResp = responseMap.get(qId);
+
+        if (existingResp) {
+          await tx.response.update({
+            where: { id: existingResp.id },
+            data: {
+              scoreGiven,
+              isCorrect,
+              gradedBy: teacherName,
+              gradedAt: new Date(),
+            },
+          });
+        } else {
+          await tx.response.create({
+            data: {
+              attemptId: attId,
+              questionId: qId,
+              scoreGiven,
+              isCorrect,
+              gradedBy: teacherName,
+              gradedAt: new Date(),
+            },
+          });
+        }
+      }
+    });
+
+    // 3. Đọc lại toàn bộ responses để tự động tổng kết điểm bài thi
+    const updatedResponses = await prisma.response.findMany({
+      where: { attemptId: attId },
+      include: {
+        question: true,
+      },
+    });
+
+    let newTotalScore = 0;
+    for (const r of updatedResponses) {
+      newTotalScore += Number(r.scoreGiven) || 0;
+    }
+    newTotalScore = Math.round(newTotalScore * 100) / 100;
+
+    // 4. Cập nhật tổng điểm và chuyển trạng thái sang GRADED
+    const updatedAttempt = await prisma.testAttempt.update({
+      where: { id: attId },
+      data: {
+        totalScore: newTotalScore,
+        status: "GRADED",
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            fullName: true,
+            username: true,
+          },
+        },
+      },
+    });
+
+    const maxTestScore = allQuestions.reduce((sum, q) => sum + (Number(q.score) || 1), 0);
+    const scoreOn10 = maxTestScore > 0 ? Math.round((newTotalScore / maxTestScore) * 10 * 10) / 10 : 0;
+
+    return res.status(200).json({
+      success: true,
+      message: `Đã chấm điểm thành công cho học sinh ${updatedAttempt.user.fullName}! Tổng điểm: ${newTotalScore}/${maxTestScore}đ (${scoreOn10}/10đ)`,
+      data: {
+        attemptId: updatedAttempt.id,
+        totalScore: newTotalScore,
+        maxScore: maxTestScore,
+        scoreOn10,
+        status: updatedAttempt.status,
+      },
+    });
+  } catch (error) {
+    console.error("Grade attempt error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Lỗi server khi lưu kết quả chấm điểm",
       error: error.message,
     });
   }

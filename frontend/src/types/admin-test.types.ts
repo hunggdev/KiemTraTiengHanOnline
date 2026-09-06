@@ -177,3 +177,133 @@ export interface TestStatsResponse {
   data: TestStatsData;
 }
 
+// ──────────────────────────────────────────────
+// Danh sách bài làm & Chấm điểm tự luận
+// ──────────────────────────────────────────────
+
+export interface AttemptListItemDTO {
+  id: number | string;
+  userId: number | string;
+  fullName: string;
+  username: string;
+  className: string;
+  submittedAt: string;
+  status: "IN_PROGRESS" | "SUBMITTED" | "GRADED" | "EXPIRED";
+  totalScore: number;
+  scoreOn10: number;
+  maxScore: number;
+  multipleChoiceScore: number;
+  essayScore: number;
+  essayQuestionsCount: number;
+  gradedEssayCount: number;
+  needsGrading: boolean;
+}
+
+export interface TestAttemptsData {
+  test: {
+    id: number | string;
+    title: string;
+    maxScore: number;
+    totalQuestions: number;
+    hasEssay: boolean;
+    essayCount: number;
+  };
+  summary: {
+    totalAttempts: number;
+    pendingGradingCount: number;
+    gradedCount: number;
+  };
+  attempts: AttemptListItemDTO[];
+}
+
+export interface TestAttemptsResponse {
+  success: boolean;
+  data: TestAttemptsData;
+}
+
+export interface AttemptQuestionResponseDTO {
+  id: number | string;
+  answerText: string | null;
+  audioUrl: string | null;
+  isCorrect: boolean | null;
+  scoreGiven: number | null;
+  gradedBy: string | null;
+  gradedAt: string | null;
+}
+
+export interface AttemptQuestionDTO {
+  id: number | string;
+  order: number;
+  type: "MULTIPLE_CHOICE" | "ESSAY" | "AUDIO_RESPONSE";
+  content: string;
+  audioUrl?: string | null;
+  imageUrl?: string | null;
+  correctAnswer?: string | null;
+  score: number;
+  options?: OptionDTO[];
+  response: AttemptQuestionResponseDTO | null;
+}
+
+export interface AttemptSectionDTO {
+  id: number | string;
+  skill: "LISTENING" | "SPEAKING" | "READING" | "WRITING";
+  order: number;
+  durationMin?: number | null;
+  questions: AttemptQuestionDTO[];
+}
+
+export interface AttemptDetailDTO {
+  attemptId: number | string;
+  status: string;
+  startedAt: string;
+  submittedAt: string;
+  totalScore: number;
+  maxScore: number;
+  scoreOn10: number;
+  autoMcScore: number;
+  manualEssayScore: number;
+  totalQuestions: number;
+  essayQuestionsCount: number;
+  gradedEssayCount: number;
+  needsGrading: boolean;
+  user: {
+    id: number | string;
+    fullName: string;
+    username: string;
+    className: string;
+  };
+  test: {
+    id: number | string;
+    title: string;
+    description?: string | null;
+    durationMin: number;
+  };
+  sections: AttemptSectionDTO[];
+}
+
+export interface AttemptDetailResponse {
+  success: boolean;
+  data: AttemptDetailDTO;
+}
+
+export interface GradeItemPayload {
+  questionId: number | string;
+  scoreGiven: number;
+}
+
+export interface GradeAttemptPayload {
+  grades: GradeItemPayload[];
+}
+
+export interface GradeAttemptResponse {
+  success: boolean;
+  message: string;
+  data: {
+    attemptId: number | string;
+    totalScore: number;
+    maxScore: number;
+    scoreOn10: number;
+    status: string;
+  };
+}
+

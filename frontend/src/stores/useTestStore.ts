@@ -4,6 +4,7 @@ import type {
   CreateTestPayload,
   UpdateTestPayload,
   TestListQueryParams,
+  GradeAttemptPayload,
 } from "@/types/admin-test.types.ts";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -16,6 +17,8 @@ export const testKeys = {
   details: () => [...testKeys.all, "detail"] as const,
   detail: (id: string) => [...testKeys.details(), id] as const,
   stats: (id: string) => [...testKeys.all, "stats", id] as const,
+  attempts: (testId: string, params?: any) => [...testKeys.all, "attempts", testId, params] as const,
+  attemptDetail: (attemptId: string) => [...testKeys.all, "attemptDetail", attemptId] as const,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -51,6 +54,65 @@ export const useTestStats = (id: string) => {
   });
 };
 
+/** Lấy danh sách bài làm của học sinh cho 1 bài kiểm tra */
+export const useTestAttempts = (
+  testId: string,
+  params?: { status?: string; search?: string }
+) => {
+  return useQuery({
+    queryKey: testKeys.attempts(testId, params),
+    queryFn: () => testService.getAttempts(testId, params),
+    enabled: !!testId,
+    staleTime: 10_000,
+  });
+};
+
+/** Lấy chi tiết 1 bài làm của học sinh để giáo viên chấm điểm */
+export const useAttemptDetail = (attemptId: string) => {
+  return useQuery({
+    queryKey: testKeys.attemptDetail(attemptId),
+    queryFn: () => testService.getAttemptDetail(attemptId),
+    enabled: !!attemptId,
+    staleTime: 5_000,
+  });
+};
+
+/** Chấm điểm bài thi tự luận và tự động tính tổng điểm */
+export const useGradeAttempt = (testId?: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      attemptId,
+      payload,
+    }: {
+      attemptId: string;
+      payload: GradeAttemptPayload;
+    }) => testService.gradeAttempt(attemptId, payload),
+    onSuccess: (_, variables) => {
+      // Invalidate attempt detail
+      queryClient.invalidateQueries({
+        queryKey: testKeys.attemptDetail(variables.attemptId),
+      });
+      // Invalidate test attempts list
+      if (testId) {
+        queryClient.invalidateQueries({
+          queryKey: [...testKeys.all, "attempts", testId],
+        });
+        queryClient.invalidateQueries({
+          queryKey: testKeys.stats(testId),
+        });
+      } else {
+        queryClient.invalidateQueries({
+          queryKey: [...testKeys.all, "attempts"],
+        });
+        queryClient.invalidateQueries({
+          queryKey: [...testKeys.all, "stats"],
+        });
+      }
+      queryClient.invalidateQueries({ queryKey: testKeys.lists() });
+    },
+  });
+};
 
 /** Tạo bài test mới */
 export const useCreateTest = () => {
@@ -138,3 +200,4 @@ export const useSubmitTestAttempt = (testId?: string) => {
     },
   });
 };
+

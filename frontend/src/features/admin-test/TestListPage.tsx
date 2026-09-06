@@ -15,6 +15,7 @@ import {
   FileText,
   BarChart3,
   Sparkles,
+  PenLine,
 } from "lucide-react";
 import {
   useTests,
@@ -70,22 +71,36 @@ interface TestCardProps {
   onDelete: (id: string) => void;
   onTogglePublish: (id: string) => void;
   onStats?: (id: string) => void;
+  onGrading?: (id: string) => void;
   isDeleting: boolean;
   isTogglingPublish: boolean;
 }
 
-function TestCard({ test, onView, onEdit, onDelete, onTogglePublish, onStats, isDeleting, isTogglingPublish }: TestCardProps) {
+function TestCard({
+  test,
+  onView,
+  onEdit,
+  onDelete,
+  onTogglePublish,
+  onStats,
+  onGrading,
+  isDeleting,
+  isTogglingPublish,
+}: TestCardProps) {
   const createdAt = new Date(test.createdAt).toLocaleDateString("vi-VN", {
     day: "2-digit",
     month: "2-digit",
-
     year: "numeric",
   });
 
   return (
     <div className="group relative bg-card rounded-xl border shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden">
       {/* published indicator strip */}
-      <div className={`absolute top-0 left-0 right-0 h-0.5 ${test.isPublished ? "bg-emerald-500" : "bg-muted"}`} />
+      <div
+        className={`absolute top-0 left-0 right-0 h-0.5 ${
+          test.isPublished ? "bg-emerald-500" : "bg-muted"
+        }`}
+      />
 
       <div className="p-5">
         <div className="flex items-start justify-between gap-3 mb-3">
@@ -101,12 +116,20 @@ function TestCard({ test, onView, onEdit, onDelete, onTogglePublish, onStats, is
           </div>
           <Badge
             variant={test.isPublished ? "default" : "secondary"}
-            className={`shrink-0 text-xs gap-1 ${test.isPublished ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200" : ""}`}
+            className={`shrink-0 text-xs gap-1 ${
+              test.isPublished
+                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200"
+                : ""
+            }`}
           >
             {test.isPublished ? (
-              <><Globe className="w-2.5 h-2.5" /> Xuất bản</>
+              <>
+                <Globe className="w-2.5 h-2.5" /> Xuất bản
+              </>
             ) : (
-              <><Lock className="w-2.5 h-2.5" /> Nháp</>
+              <>
+                <Lock className="w-2.5 h-2.5" /> Nháp
+              </>
             )}
           </Badge>
         </div>
@@ -131,25 +154,38 @@ function TestCard({ test, onView, onEdit, onDelete, onTogglePublish, onStats, is
 
         {/* Actions */}
         <div className="space-y-2 pt-3 border-t">
-          {/* Main Actions: Xem & Thống kê */}
-          <div className="grid grid-cols-2 gap-2">
+          {/* Main Actions: Xem, Chấm bài, Thống kê */}
+          <div className="grid grid-cols-3 gap-1.5">
             <Button
               variant="outline"
               size="sm"
-              className="text-xs h-8.5 rounded-lg justify-center font-medium cursor-pointer"
+              className="text-xs h-8.5 rounded-lg justify-center font-medium cursor-pointer px-2"
               onClick={() => onView(String(test.id))}
+              title="Xem nội dung đề thi"
             >
-              <Eye className="w-3.5 h-3.5 mr-1.5 shrink-0" />
-              <span>Xem chi tiết</span>
+              <Eye className="w-3.5 h-3.5 mr-1 shrink-0" />
+              <span>Chi tiết</span>
             </Button>
 
             <Button
               variant="outline"
               size="sm"
-              className="text-xs h-8.5 rounded-lg justify-center font-semibold text-primary hover:text-primary hover:bg-primary/5 border-primary/30 cursor-pointer bg-primary/[0.02]"
-              onClick={() => onStats?.(String(test.id))}
+              className="text-xs h-8.5 rounded-lg justify-center font-semibold text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 border-amber-500/30 cursor-pointer px-2 bg-amber-500/[0.03]"
+              onClick={() => onGrading?.(String(test.id))}
+              title="Xem bài làm và chấm điểm tự luận"
             >
-              <BarChart3 className="w-3.5 h-3.5 mr-1.5 shrink-0" />
+              <PenLine className="w-3.5 h-3.5 mr-1 shrink-0" />
+              <span>Chấm bài</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs h-8.5 rounded-lg justify-center font-semibold text-primary hover:text-primary hover:bg-primary/5 border-primary/30 cursor-pointer px-2 bg-primary/[0.02]"
+              onClick={() => onStats?.(String(test.id))}
+              title="Xem biểu đồ phổ điểm và xếp hạng"
+            >
+              <BarChart3 className="w-3.5 h-3.5 mr-1 shrink-0" />
               <span>Thống kê</span>
             </Button>
           </div>
@@ -172,9 +208,15 @@ function TestCard({ test, onView, onEdit, onDelete, onTogglePublish, onStats, is
               onClick={() => onTogglePublish(String(test.id))}
               disabled={isTogglingPublish}
               className={`text-xs h-8 px-2.5 rounded-lg gap-1.5 cursor-pointer shrink-0 ${
-                test.isPublished ? "text-emerald-600 dark:text-emerald-400 border-emerald-500/30" : "text-muted-foreground"
+                test.isPublished
+                  ? "text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
+                  : "text-muted-foreground"
               }`}
-              title={test.isPublished ? "Đang xuất bản - Nhấn để ẩn" : "Bản nháp - Nhấn để xuất bản"}
+              title={
+                test.isPublished
+                  ? "Đang xuất bản - Nhấn để ẩn"
+                  : "Bản nháp - Nhấn để xuất bản"
+              }
             >
               {isTogglingPublish ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -199,14 +241,19 @@ function TestCard({ test, onView, onEdit, onDelete, onTogglePublish, onStats, is
                   className="h-8 w-8 p-0 rounded-lg text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30 shrink-0 cursor-pointer"
                   title="Xóa bài thi"
                 >
-                  {isDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                  {isDeleting ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-3.5 h-3.5" />
+                  )}
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>Xác nhận xóa bài thi</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Bạn sắp xóa bài thi <strong>"{test.title}"</strong>. Hành động này không thể hoàn tác và sẽ xóa toàn bộ phần thi, câu hỏi, và kết quả liên quan.
+                    Bạn sắp xóa bài thi <strong>"{test.title}"</strong>. Hành động này không
+                    thể hoàn tác và sẽ xóa toàn bộ phần thi, câu hỏi, và kết quả liên quan.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -235,9 +282,16 @@ interface TestListPageProps {
   onViewDetail?: (id: string) => void;
   onEditTest?: (id: string) => void;
   onViewStats?: (id: string) => void;
+  onViewGrading?: (id: string) => void;
 }
 
-export function TestListPage({ onCreateNew, onViewDetail, onEditTest, onViewStats }: TestListPageProps) {
+export function TestListPage({
+  onCreateNew,
+  onViewDetail,
+  onEditTest,
+  onViewStats,
+  onViewGrading,
+}: TestListPageProps) {
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 350);
   const [filterPublish, setFilterPublish] = useState<"all" | "published" | "draft">("all");
@@ -381,6 +435,7 @@ export function TestListPage({ onCreateNew, onViewDetail, onEditTest, onViewStat
                   onView={(id) => onViewDetail?.(id)}
                   onEdit={(id) => onEditTest?.(id)}
                   onStats={(id) => onViewStats?.(id)}
+                  onGrading={(id) => onViewGrading?.(id)}
                   onDelete={handleDelete}
                   onTogglePublish={handleTogglePublish}
                   isDeleting={deletingId === String(test.id)}

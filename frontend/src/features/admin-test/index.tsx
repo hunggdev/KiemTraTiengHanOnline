@@ -4,8 +4,9 @@ import { TestListPage } from "./TestListPage.tsx";
 import { DetailTestPage } from "./DetailTestPage.tsx";
 import { EditTestPage } from "./EditTestPage.tsx";
 import { StatsChartPage } from "./StatsChartPage.tsx";
+import { TestGradingPage } from "./TestGradingPage.tsx";
 
-type View = "list" | "create" | "detail" | "edit" | "stats";
+type View = "list" | "create" | "detail" | "edit" | "stats" | "grading";
 
 /**
  * AdminTestFeature — entry point for admin test management.
@@ -14,6 +15,7 @@ type View = "list" | "create" | "detail" | "edit" | "stats";
 export function AdminTestFeature() {
   const [view, setView] = useState<View>("list");
   const [selectedTestId, setSelectedTestId] = useState<string | null>(null);
+  const [selectedAttemptId, setSelectedAttemptId] = useState<string | null>(null);
 
   const handleViewDetail = (testId: string) => {
     setSelectedTestId(testId);
@@ -30,8 +32,15 @@ export function AdminTestFeature() {
     setView("stats");
   };
 
+  const handleViewGrading = (testId: string, attemptId?: string | null) => {
+    setSelectedTestId(testId);
+    setSelectedAttemptId(attemptId || null);
+    setView("grading");
+  };
+
   const handleBackToList = () => {
     setSelectedTestId(null);
+    setSelectedAttemptId(null);
     setView("list");
   };
 
@@ -43,6 +52,7 @@ export function AdminTestFeature() {
           onViewDetail={handleViewDetail}
           onEditTest={handleEditTest}
           onViewStats={handleViewStats}
+          onViewGrading={handleViewGrading}
         />
       )}
 
@@ -67,6 +77,7 @@ export function AdminTestFeature() {
           onBack={handleBackToList}
           onEdit={handleEditTest}
           onViewStats={handleViewStats}
+          onViewGrading={handleViewGrading}
         />
       )}
 
@@ -82,6 +93,16 @@ export function AdminTestFeature() {
         <StatsChartPage
           testId={selectedTestId}
           onBack={handleBackToList}
+          onViewGrading={(attemptId) => handleViewGrading(selectedTestId, attemptId)}
+        />
+      )}
+
+      {view === "grading" && selectedTestId && (
+        <TestGradingPage
+          testId={selectedTestId}
+          initialAttemptId={selectedAttemptId}
+          onBack={handleBackToList}
+          onViewStats={handleViewStats}
         />
       )}
     </>
@@ -95,6 +116,8 @@ export { TestListPage } from "./TestListPage.tsx";
 export { DetailTestPage } from "./DetailTestPage.tsx";
 export { SectionBuilder } from "./SectionBuilder.tsx";
 export { StatsChartPage } from "./StatsChartPage.tsx";
+export { TestGradingPage } from "./TestGradingPage.tsx";
 export { QuickImportTestModal } from "./QuickImportTestModal.tsx";
+
 
 

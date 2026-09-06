@@ -7,6 +7,10 @@ import type {
   TestMutationResponse,
   TestListQueryParams,
   TestStatsResponse,
+  TestAttemptsResponse,
+  AttemptDetailResponse,
+  GradeAttemptPayload,
+  GradeAttemptResponse,
 } from "@/types/admin-test.types.ts";
 
 const api = axios.create({
@@ -42,6 +46,33 @@ export const testService = {
   // Lấy thống kê số liệu chi tiết cho giáo viên
   getStats: async (id: string): Promise<TestStatsResponse> => {
     const { data } = await api.get<TestStatsResponse>(`/tests/${id}/stats`);
+    return data;
+  },
+
+  // Lấy danh sách bài làm của học sinh cho 1 bài test (cho giáo viên)
+  getAttempts: async (
+    testId: string,
+    params?: { status?: string; search?: string }
+  ): Promise<TestAttemptsResponse> => {
+    const { data } = await api.get<TestAttemptsResponse>(`/tests/${testId}/attempts`, { params });
+    return data;
+  },
+
+  // Lấy chi tiết bài làm cụ thể để chấm điểm
+  getAttemptDetail: async (attemptId: string): Promise<AttemptDetailResponse> => {
+    const { data } = await api.get<AttemptDetailResponse>(`/tests/attempts/${attemptId}`);
+    return data;
+  },
+
+  // Chấm điểm bài tự luận và tổng kết điểm
+  gradeAttempt: async (
+    attemptId: string,
+    payload: GradeAttemptPayload
+  ): Promise<GradeAttemptResponse> => {
+    const { data } = await api.post<GradeAttemptResponse>(
+      `/tests/attempts/${attemptId}/grade`,
+      payload
+    );
     return data;
   },
 
@@ -87,4 +118,5 @@ export const testService = {
     return data;
   },
 };
+
 

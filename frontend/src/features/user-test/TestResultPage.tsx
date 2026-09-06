@@ -176,8 +176,13 @@ export function TestResultPage({
                         </Badge>
                       )}
                       {isCorrect === null && (
-                        <Badge variant="secondary" className="text-xs">
-                          Chờ chấm tự luận
+                        <Badge
+                          variant="secondary"
+                          className="text-xs bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                        >
+                          {q.scoreGiven !== null && q.scoreGiven !== undefined
+                            ? `Đã chấm: +${q.scoreGiven}đ`
+                            : "Chờ giáo viên chấm"}
                         </Badge>
                       )}
                     </div>
@@ -240,10 +245,21 @@ export function TestResultPage({
 
                   {/* Essay answer review */}
                   {q.type === "ESSAY" && (
-                    <div className="p-3.5 rounded-xl bg-muted/30 border space-y-1.5 text-xs">
-                      <span className="font-semibold text-muted-foreground block">
-                        Câu trả lời của bạn:
-                      </span>
+                    <div className="p-3.5 rounded-xl bg-muted/30 border space-y-2 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-muted-foreground block">
+                          Câu trả lời của bạn:
+                        </span>
+                        {q.scoreGiven !== null && q.scoreGiven !== undefined ? (
+                          <span className="font-bold text-amber-600 dark:text-amber-400">
+                            Điểm giáo viên chấm: {q.scoreGiven}/{q.score}đ
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground italic">
+                            (Giáo viên chưa chấm bài tự luận này)
+                          </span>
+                        )}
+                      </div>
                       <p className="text-foreground whitespace-pre-wrap">
                         {q.userAnswer || <span className="italic text-muted-foreground">Chưa nhập câu trả lời</span>}
                       </p>

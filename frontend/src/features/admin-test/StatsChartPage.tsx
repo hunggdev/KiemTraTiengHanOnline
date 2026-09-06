@@ -35,6 +35,7 @@ import type { ParticipantStatDTO, ScoreDistributionBucket } from "@/types/admin-
 interface StatsChartPageProps {
   testId: string;
   onBack: () => void;
+  onViewGrading?: (attemptId?: string | null) => void;
 }
 
 const SKILL_ICONS: Record<string, React.FC<{ className?: string }>> = {
@@ -51,7 +52,7 @@ const SKILL_NAMES: Record<string, string> = {
   WRITING: "Viết",
 };
 
-export function StatsChartPage({ testId, onBack }: StatsChartPageProps) {
+export function StatsChartPage({ testId, onBack, onViewGrading }: StatsChartPageProps) {
   const { data, isLoading, isError, refetch, isRefetching } = useTestStats(testId);
   const [searchTerm, setSearchTerm] = useState("");
   const [gradeFilter, setGradeFilter] = useState<string>("ALL");
@@ -155,6 +156,17 @@ export function StatsChartPage({ testId, onBack }: StatsChartPageProps) {
           </div>
 
           <div className="flex items-center gap-2.5 shrink-0">
+            {onViewGrading && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onViewGrading(null)}
+                className="h-9 gap-1.5 text-xs rounded-xl cursor-pointer text-amber-600 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/10 font-semibold"
+              >
+                <PenLine className="w-3.5 h-3.5" />
+                Chấm bài học sinh
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"
@@ -540,12 +552,13 @@ export function StatsChartPage({ testId, onBack }: StatsChartPageProps) {
                       <th className="py-3 px-4 text-center">Xếp loại</th>
                       <th className="py-3 px-4 text-center">Số lần thi</th>
                       <th className="py-3 px-4 text-right">Thời gian nộp</th>
+                      <th className="py-3 px-4 text-center">Hành động</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
                     {filteredParticipants.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="py-10 text-center text-muted-foreground">
+                        <td colSpan={9} className="py-10 text-center text-muted-foreground">
                           Không tìm thấy thí sinh nào khớp với bộ lọc.
                         </td>
                       </tr>
@@ -630,6 +643,20 @@ export function StatsChartPage({ testId, onBack }: StatsChartPageProps) {
                             <td className="py-3 px-4 text-right text-muted-foreground text-[11px]">
                               {submitDate}
                             </td>
+                            <td className="py-3 px-4 text-center">
+                              {onViewGrading && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => onViewGrading(String(p.attemptId))}
+                                  className="h-7 px-2.5 rounded-lg text-[11px] gap-1 font-semibold text-amber-600 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/10 cursor-pointer"
+                                  title="Xem chi tiết và chấm điểm bài làm này"
+                                >
+                                  <PenLine className="w-3 h-3" />
+                                  Chấm / Xem
+                                </Button>
+                              )}
+                            </td>
                           </tr>
                         );
                       })
@@ -644,3 +671,4 @@ export function StatsChartPage({ testId, onBack }: StatsChartPageProps) {
     </div>
   );
 }
+

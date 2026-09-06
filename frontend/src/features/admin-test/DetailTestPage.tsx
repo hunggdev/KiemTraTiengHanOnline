@@ -47,6 +47,7 @@ interface DetailTestPageProps {
   onBack: () => void;
   onEdit?: (testId: string) => void;
   onViewStats?: (testId: string) => void;
+  onViewGrading?: (testId: string) => void;
 }
 
 
@@ -94,7 +95,13 @@ const QTYPE_META: Record<
   },
 };
 
-export function DetailTestPage({ testId, onBack, onEdit, onViewStats }: DetailTestPageProps) {
+export function DetailTestPage({
+  testId,
+  onBack,
+  onEdit,
+  onViewStats,
+  onViewGrading,
+}: DetailTestPageProps) {
   const { data, isLoading, isError, refetch } = useTestById(testId);
   const togglePublishMutation = useTogglePublishTest();
   const deleteMutation = useDeleteTest();
@@ -189,7 +196,19 @@ export function DetailTestPage({ testId, onBack, onEdit, onViewStats }: DetailTe
             Quay lại danh sách
           </Button>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {onViewGrading && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onViewGrading(test.id)}
+                className="h-8 gap-1.5 text-xs text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 border-amber-500/30 font-semibold"
+              >
+                <PenLine className="w-3.5 h-3.5" />
+                Chấm bài học sinh
+              </Button>
+            )}
+
             {onViewStats && (
               <Button
                 variant="outline"
