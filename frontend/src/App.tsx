@@ -1,15 +1,15 @@
 import { useState, useEffect } from 'react'
 import { AdminTestFeature } from './features/admin-test/index.tsx'
 import { UserTestFeature } from './features/user-test/index.tsx'
+import { FlashcardFeature } from './features/flashcards/index.tsx'
 import { AuthPage } from './features/auth/AuthPage.tsx'
 import { useAuthStore } from './stores/useAuthStore.ts'
-import { Shield, GraduationCap, LogOut, Loader2 } from 'lucide-react'
+import { Shield, GraduationCap, Languages, LogOut, Loader2 } from 'lucide-react'
 import { Button } from './components/ui/button.tsx'
-import { Badge } from './components/ui/badge.tsx'
 
 function App() {
   const { user, isAuthenticated, isLoading, checkAuth, signOut } = useAuthStore()
-  const [activeTab, setActiveTab] = useState<'student' | 'admin'>('student')
+  const [activeTab, setActiveTab] = useState<'student' | 'admin' | 'flashcards'>('student')
 
   // Kiểm tra phiên đăng nhập khi khởi động
   useEffect(() => {
@@ -56,13 +56,13 @@ function App() {
               KT
             </div>
             <span className="font-bold text-sm tracking-tight hidden sm:inline">
-              Hệ thống Kiểm Tra Online
+              Hệ thống Kiểm Tra & Flashcard
             </span>
           </div>
 
-          {/* Role Navigation Buttons (nếu là giáo viên có thể chuyển tab) */}
-          {isTeacher ? (
-            <div className="flex items-center p-1 rounded-xl bg-muted border">
+          {/* Navigation Tabs */}
+          <div className="flex items-center p-1 rounded-xl bg-muted border">
+            {isTeacher && (
               <button
                 onClick={() => setActiveTab('admin')}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
@@ -72,26 +72,34 @@ function App() {
                 }`}
               >
                 <Shield className="w-3.5 h-3.5 text-primary" />
-                Quản trị đề thi
+                <span className="hidden sm:inline">Quản trị</span> đề thi
               </button>
-              <button
-                onClick={() => setActiveTab('student')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                  activeTab === 'student'
-                    ? 'bg-background text-foreground shadow-xs'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <GraduationCap className="w-3.5 h-3.5" />
-                Làm bài (Học sinh)
-              </button>
-            </div>
-          ) : (
-            <Badge variant="outline" className="px-3 py-1 text-xs gap-1.5 bg-primary/5 text-primary border-primary/20">
+            )}
+
+            <button
+              onClick={() => setActiveTab('student')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                activeTab === 'student'
+                  ? 'bg-background text-foreground shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
               <GraduationCap className="w-3.5 h-3.5" />
-              Giao diện làm bài
-            </Badge>
-          )}
+              Làm bài thi
+            </button>
+
+            <button
+              onClick={() => setActiveTab('flashcards')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                activeTab === 'flashcards'
+                  ? 'bg-background text-primary font-bold shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Languages className="w-3.5 h-3.5 text-primary" />
+              Học Flashcard
+            </button>
+          </div>
 
           {/* User Profile & Sign Out Button */}
           <div className="flex items-center gap-3">
@@ -122,6 +130,8 @@ function App() {
       <div className="flex-1">
         {activeTab === 'admin' && isTeacher ? (
           <AdminTestFeature />
+        ) : activeTab === 'flashcards' ? (
+          <FlashcardFeature />
         ) : (
           <UserTestFeature />
         )}
