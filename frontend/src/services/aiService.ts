@@ -25,7 +25,13 @@ export interface ChatResponse {
 
 export async function sendChatMessage(payload: SendMessagePayload): Promise<string> {
   try {
-    const response = await apiClient.post<ChatResponse>('/ai/chat', payload);
+    const customKey = localStorage.getItem('gemini_api_key') || undefined;
+    const body: SendMessagePayload = {
+      ...payload,
+      apiKey: payload.apiKey || (customKey && customKey.trim() ? customKey.trim() : undefined),
+    };
+
+    const response = await apiClient.post<ChatResponse>('/ai/chat', body);
     if (response.data.success && response.data.data?.reply) {
       return response.data.data.reply;
     }

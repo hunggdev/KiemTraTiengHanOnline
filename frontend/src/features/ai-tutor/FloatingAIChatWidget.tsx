@@ -11,6 +11,8 @@ import {
   RotateCcw,
   Volume2,
   Maximize2,
+  Key,
+  Check,
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { sendChatMessage, type ChatMessage } from '../../services/aiService';
@@ -22,6 +24,9 @@ interface FloatingAIChatWidgetProps {
 
 export function FloatingAIChatWidget({ onOpenFullTab }: FloatingAIChatWidgetProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [showKeyModal, setShowKeyModal] = useState(false);
+  const [apiKeyInput, setApiKeyInput] = useState(() => localStorage.getItem('gemini_api_key') || '');
+  const [keySaved, setKeySaved] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'welcome',
@@ -124,6 +129,13 @@ export function FloatingAIChatWidget({ onOpenFullTab }: FloatingAIChatWidgetProp
             </div>
 
             <div className="flex items-center gap-1">
+              <button
+                onClick={() => setShowKeyModal(!showKeyModal)}
+                className="p-1.5 hover:bg-white/20 rounded-lg transition-colors cursor-pointer text-white/90"
+                title="Cài đặt API Key cá nhân"
+              >
+                <Key className="w-3.5 h-3.5" />
+              </button>
               {onOpenFullTab && (
                 <button
                   onClick={() => {
@@ -162,6 +174,42 @@ export function FloatingAIChatWidget({ onOpenFullTab }: FloatingAIChatWidgetProp
               </button>
             </div>
           </div>
+
+          {/* Optional API Key configuration bar */}
+          {showKeyModal && (
+            <div className="bg-muted/80 p-2.5 border-b text-xs flex flex-col gap-1.5 animate-in fade-in duration-150">
+              <span className="font-semibold text-foreground flex items-center justify-between">
+                <span>Cấu hình Gemini API Key:</span>
+                {keySaved && <span className="text-emerald-600 font-bold flex items-center gap-1"><Check className="w-3 h-3" /> Đã lưu</span>}
+              </span>
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="password"
+                  value={apiKeyInput}
+                  onChange={(e) => setApiKeyInput(e.target.value)}
+                  placeholder="Để trống sẽ dùng key mặc định..."
+                  className="flex-1 bg-background border rounded-lg px-2 py-1 text-xs outline-hidden"
+                />
+                <button
+                  onClick={() => {
+                    if (apiKeyInput.trim()) {
+                      localStorage.setItem('gemini_api_key', apiKeyInput.trim());
+                    } else {
+                      localStorage.removeItem('gemini_api_key');
+                    }
+                    setKeySaved(true);
+                    setTimeout(() => {
+                      setKeySaved(false);
+                      setShowKeyModal(false);
+                    }, 1200);
+                  }}
+                  className="px-2.5 py-1 bg-primary text-primary-foreground rounded-lg font-semibold hover:opacity-90 cursor-pointer"
+                >
+                  Lưu
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Message List */}
           <div className="flex-1 p-3 overflow-y-auto space-y-3 bg-muted/20 text-xs">

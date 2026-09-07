@@ -16,6 +16,7 @@ import {
   Lightbulb,
   AlertCircle,
   Loader2,
+  Key,
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { sendChatMessage, type ChatMessage } from '../../services/aiService';
@@ -65,6 +66,9 @@ export function JapaneseAIChatPage() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [showKeyModal, setShowKeyModal] = useState(false);
+  const [apiKeyInput, setApiKeyInput] = useState(() => localStorage.getItem('gemini_api_key') || '');
+  const [keySaved, setKeySaved] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -202,6 +206,17 @@ export function JapaneseAIChatPage() {
           <Button
             variant="outline"
             size="sm"
+            onClick={() => setShowKeyModal(!showKeyModal)}
+            className="h-8 text-xs gap-1.5 rounded-xl cursor-pointer"
+            title="Cài đặt API Key cá nhân"
+          >
+            <Key className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Cài đặt Key</span>
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleResetChat}
             className="h-8 text-xs gap-1.5 rounded-xl cursor-pointer"
             title="Làm mới cuộc trò chuyện"
@@ -211,6 +226,62 @@ export function JapaneseAIChatPage() {
           </Button>
         </div>
       </div>
+
+      {/* API Key Modal / Bar */}
+      {showKeyModal && (
+        <div className="bg-card border rounded-2xl p-3 sm:p-4 mb-3 shadow-xs animate-in fade-in duration-150">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-2">
+            <div>
+              <h4 className="text-xs sm:text-sm font-bold text-foreground">
+                Cấu hình Google Gemini API Key
+              </h4>
+              <p className="text-[11px] text-muted-foreground">
+                Mặc định hệ thống đã có key sẵn. Bạn có thể nhập key riêng (được lưu an toàn trên trình duyệt) nếu muốn.
+              </p>
+            </div>
+            {keySaved && (
+              <span className="text-xs text-emerald-600 font-bold flex items-center gap-1">
+                <Check className="w-3.5 h-3.5" /> Đã lưu thành công
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="password"
+              value={apiKeyInput}
+              onChange={(e) => setApiKeyInput(e.target.value)}
+              placeholder="Để trống sẽ dùng key mặc định của hệ thống..."
+              className="flex-1 bg-muted/50 border rounded-xl px-3 py-1.5 text-xs outline-hidden focus:border-indigo-500"
+            />
+            <Button
+              size="sm"
+              onClick={() => {
+                if (apiKeyInput.trim()) {
+                  localStorage.setItem('gemini_api_key', apiKeyInput.trim());
+                } else {
+                  localStorage.removeItem('gemini_api_key');
+                }
+                setKeySaved(true);
+                setTimeout(() => {
+                  setKeySaved(false);
+                  setShowKeyModal(false);
+                }, 1200);
+              }}
+              className="h-8 rounded-xl text-xs font-semibold cursor-pointer"
+            >
+              Lưu cấu hình
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowKeyModal(false)}
+              className="h-8 rounded-xl text-xs cursor-pointer"
+            >
+              Đóng
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Chat Messages Container */}
       <div className="flex-1 bg-card border rounded-2xl p-3 sm:p-5 overflow-y-auto shadow-xs flex flex-col gap-4">

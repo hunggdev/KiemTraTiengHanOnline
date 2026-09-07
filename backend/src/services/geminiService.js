@@ -21,7 +21,10 @@ export async function askGeminiJapaneseTutor({
   systemInstruction = DEFAULT_SYSTEM_PROMPT,
   apiKey = null,
 }) {
-  const activeKey = apiKey || process.env.GEMINI_API_KEY || FALLBACK_KEY;
+  const envKey = (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim()) || '';
+  const userKey = (apiKey && typeof apiKey === 'string' && apiKey.trim()) || '';
+  const activeKey = userKey || envKey || FALLBACK_KEY;
+
   if (!activeKey) {
     return {
       success: false,
@@ -29,6 +32,8 @@ export async function askGeminiJapaneseTutor({
     };
   }
 
+  // Đảm bảo cả process.env và client option đều nhận key chuẩn
+  process.env.GEMINI_API_KEY = activeKey;
   const ai = new GoogleGenAI({ apiKey: activeKey });
 
   // Định dạng contents từ history + tin nhắn mới
