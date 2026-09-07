@@ -5,6 +5,7 @@ import cookieParser from "cookie-parser";
 import { connectDB } from "./config/database.js";
 import authRoute from "./routes/authRoute.js";
 import testRoute from "./routes/testRoute.js";
+import aiRoute from "./routes/aiRoute.js";
 
 dotenv.config();
 
@@ -43,6 +44,7 @@ app.use(express.json());
 
 app.use("/api/auth", authRoute);
 app.use("/api/tests", testRoute);
+app.use("/api/ai", aiRoute);
 
 connectDB().then(() => {
   app.listen(PORT, () => {

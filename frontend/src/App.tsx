@@ -2,14 +2,15 @@ import { useState, useEffect } from 'react'
 import { AdminTestFeature } from './features/admin-test/index.tsx'
 import { UserTestFeature } from './features/user-test/index.tsx'
 import { FlashcardFeature } from './features/flashcards/index.tsx'
+import { JapaneseAIChatPage, FloatingAIChatWidget } from './features/ai-tutor/index.tsx'
 import { AuthPage } from './features/auth/AuthPage.tsx'
 import { useAuthStore } from './stores/useAuthStore.ts'
-import { Shield, GraduationCap, Languages, LogOut, Loader2 } from 'lucide-react'
+import { Shield, GraduationCap, Languages, LogOut, Loader2, Sparkles } from 'lucide-react'
 import { Button } from './components/ui/button.tsx'
 
 function App() {
   const { user, isAuthenticated, isLoading, checkAuth, signOut } = useAuthStore()
-  const [activeTab, setActiveTab] = useState<'student' | 'admin' | 'flashcards'>('student')
+  const [activeTab, setActiveTab] = useState<'student' | 'admin' | 'flashcards' | 'ai-chat'>('student')
 
   // Kiểm tra phiên đăng nhập khi khởi động
   useEffect(() => {
@@ -99,6 +100,18 @@ function App() {
               <Languages className="w-3.5 h-3.5 text-primary" />
               Học Flashcard
             </button>
+
+            <button
+              onClick={() => setActiveTab('ai-chat')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                activeTab === 'ai-chat'
+                  ? 'bg-background text-indigo-600 dark:text-indigo-400 font-bold shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+              <span>Trợ lý AI</span>
+            </button>
           </div>
 
           {/* User Profile & Sign Out Button */}
@@ -132,10 +145,17 @@ function App() {
           <AdminTestFeature />
         ) : activeTab === 'flashcards' ? (
           <FlashcardFeature />
+        ) : activeTab === 'ai-chat' ? (
+          <JapaneseAIChatPage />
         ) : (
           <UserTestFeature />
         )}
       </div>
+
+      {/* Floating AI Assistant Widget (visible when not on the main AI tab) */}
+      {activeTab !== 'ai-chat' && (
+        <FloatingAIChatWidget onOpenFullTab={() => setActiveTab('ai-chat')} />
+      )}
     </div>
   )
 }

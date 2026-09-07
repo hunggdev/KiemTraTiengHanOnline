@@ -204,3 +204,22 @@ body {
     @apply bg-background text-foreground;}
   html {
     @apply font-sans;}}
+
+/* Furigana (Ruby) styling for Japanese text */
+ruby {
+  ruby-align: center;
+  ruby-position: over;
+  display: inline-ruby;
+}
+
+rt {
+  font-size: 0.62em;
+  color: oklch(0.55 0.18 270);
+  font-weight: 600;
+  user-select: none;
+  line-height: 1;
+}
+
+.dark rt {
+  color: oklch(0.75 0.15 270);
+}
