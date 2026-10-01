@@ -1,62 +1,83 @@
-import { useState } from "react";
+import { Routes, Route, useNavigate, useParams, useLocation, Navigate } from "react-router-dom";
 import { UserTestListPage } from "./UserTestListPage.tsx";
 import { TakeTestPage } from "./TakeTestPage.tsx";
 import { TestResultPage } from "./TestResultPage.tsx";
+import { useSmartNavigate } from "@/lib/navigation.ts";
 import type { TestResultDTO } from "@/types/user-test.types.ts";
 
-type UserView = "list" | "taking" | "result";
-
+/**
+ * UserTestFeature — giao diện làm bài thi và xem kết quả dành cho học sinh.
+ * Sử dụng URL routes để hỗ trợ lịch sử duyệt trang, back/forward tự nhiên.
+ */
 export function UserTestFeature() {
-  const [view, setView] = useState<UserView>("list");
-  const [selectedTestId, setSelectedTestId] = useState<string | null>(null);
-  const [testResult, setTestResult] = useState<TestResultDTO | null>(null);
+  const navigate = useNavigate();
+  const { goBack } = useSmartNavigate();
 
-  const handleStartTest = (testId: string) => {
-    setSelectedTestId(testId);
-    setTestResult(null);
-    setView("taking");
-  };
+  return (
+    <Routes>
+      {/* 1. Danh sách bài thi */}
+      <Route
+        index
+        element={
+          <UserTestListPage
+            onStartTest={(testId) => navigate(`/student/tests/${testId}`)}
+          />
+        }
+      />
 
-  const handleFinishTest = (result: TestResultDTO) => {
-    setTestResult(result);
-    setView("result");
-  };
+      {/* 2. Màn hình làm bài thi */}
+      <Route
+        path="tests/:testId"
+        element={<UserTakeTestRoute onExit={() => goBack("/student")} />}
+      />
 
-  const handleBackToList = () => {
-    setSelectedTestId(null);
-    setTestResult(null);
-    setView("list");
-  };
+      {/* 3. Màn hình kết quả sau khi nộp bài */}
+      <Route
+        path="tests/:testId/result"
+        element={<UserTestResultRoute />}
+      />
 
-  const handleRetakeTest = () => {
-    if (selectedTestId) {
-      setTestResult(null);
-      setView("taking");
-    }
+      {/* Fallback */}
+      <Route path="*" element={<Navigate to="/student" replace />} />
+    </Routes>
+  );
+}
+
+function UserTakeTestRoute({ onExit }: { onExit: () => void }) {
+  const { testId } = useParams();
+  const navigate = useNavigate();
+
+  if (!testId) return <Navigate to="/student" replace />;
+
+  const handleFinish = (result: TestResultDTO) => {
+    navigate(`/student/tests/${testId}/result`, { state: { result } });
   };
 
   return (
-    <>
-      {view === "list" && (
-        <UserTestListPage onStartTest={handleStartTest} />
-      )}
+    <TakeTestPage
+      testId={testId}
+      onExit={onExit}
+      onFinish={handleFinish}
+    />
+  );
+}
 
-      {view === "taking" && selectedTestId && (
-        <TakeTestPage
-          testId={selectedTestId}
-          onExit={handleBackToList}
-          onFinish={handleFinishTest}
-        />
-      )}
+function UserTestResultRoute() {
+  const { testId } = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const result = (location.state as any)?.result;
 
-      {view === "result" && testResult && (
-        <TestResultPage
-          result={testResult}
-          onBackToList={handleBackToList}
-          onRetakeTest={handleRetakeTest}
-        />
-      )}
-    </>
+  if (!result) {
+    return <Navigate to="/student" replace />;
+  }
+
+  return (
+    <TestResultPage
+      result={result}
+      onBackToList={() => navigate("/student")}
+      onRetakeTest={() => navigate(`/student/tests/${testId}`)}
+    />
   );
 }
 

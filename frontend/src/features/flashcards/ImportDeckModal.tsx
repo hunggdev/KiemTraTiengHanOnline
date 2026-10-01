@@ -23,7 +23,7 @@ import { Badge } from "@/components/ui/badge.tsx";
 interface ImportDeckModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: (deckId: string) => void;
+  onSuccess: (deckId: string | number) => void;
 }
 
 export function ImportDeckModal({ isOpen, onClose, onSuccess }: ImportDeckModalProps) {
@@ -81,7 +81,7 @@ export function ImportDeckModal({ isOpen, onClose, onSuccess }: ImportDeckModalP
     }
   };
 
-  const handleCreateDeck = () => {
+  const handleCreateDeck = async () => {
     if (!parsedData) {
       setError("Vui lòng tải lên file dữ liệu trước khi tạo bộ thẻ.");
       return;
@@ -104,22 +104,24 @@ export function ImportDeckModal({ isOpen, onClose, onSuccess }: ImportDeckModalP
 
     for (let i = 0; i < effectiveRows.length; i++) {
       const row = effectiveRows[i];
-      const vi = row[mapping.vietnameseColIndex] || "";
-      const en = row[mapping.englishColIndex] || "";
-      const ja = row[mapping.japaneseColIndex] || "";
+      const vi = mapping.vietnameseColIndex !== undefined ? row[mapping.vietnameseColIndex] || "" : "";
+      const en = mapping.englishColIndex !== undefined ? row[mapping.englishColIndex] || "" : "";
+      const ja = mapping.japaneseColIndex !== undefined ? row[mapping.japaneseColIndex] || "" : "";
+      const kr = mapping.koreanColIndex !== undefined ? row[mapping.koreanColIndex] || "" : "";
       const roma =
         mapping.romajiColIndex !== undefined && mapping.romajiColIndex >= 0
           ? row[mapping.romajiColIndex] || ""
           : "";
 
       // Bỏ qua dòng hoàn toàn trống
-      if (!vi && !en && !ja) continue;
+      if (!vi && !en && !ja && !kr) continue;
 
       cards.push({
         id: `card-${i + 1}-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
         vietnamese: vi.trim(),
         english: en.trim(),
         japanese: ja.trim(),
+        korean: (kr || ja).trim(),
         romaji: roma ? roma.trim() : undefined,
         mastered: false,
       });
@@ -130,7 +132,7 @@ export function ImportDeckModal({ isOpen, onClose, onSuccess }: ImportDeckModalP
       return;
     }
 
-    const created = addDeck({
+    const created = await addDeck({
       title: deckTitle.trim(),
       description: deckDescription.trim() || undefined,
       type: deckType,
@@ -441,9 +443,19 @@ export function ImportDeckModal({ isOpen, onClose, onSuccess }: ImportDeckModalP
                         {previewRows.map((r, i) => (
                           <tr key={i} className="hover:bg-muted/20">
                             <td className="p-2 text-muted-foreground">{i + 1}</td>
-                            <td className="p-2 font-medium">{r[mapping.vietnameseColIndex] || "-"}</td>
-                            <td className="p-2">{r[mapping.englishColIndex] || "-"}</td>
-                            <td className="p-2 font-medium text-primary">{r[mapping.japaneseColIndex] || "-"}</td>
+                            <td className="p-2 font-medium">
+                              {mapping.vietnameseColIndex !== undefined ? r[mapping.vietnameseColIndex] || "-" : "-"}
+                            </td>
+                            <td className="p-2">
+                              {mapping.englishColIndex !== undefined ? r[mapping.englishColIndex] || "-" : "-"}
+                            </td>
+                            <td className="p-2 font-medium text-primary">
+                              {mapping.koreanColIndex !== undefined
+                                ? r[mapping.koreanColIndex] || "-"
+                                : mapping.japaneseColIndex !== undefined
+                                ? r[mapping.japaneseColIndex] || "-"
+                                : "-"}
+                            </td>
                             <td className="p-2 text-muted-foreground">
                               {mapping.romajiColIndex !== undefined && mapping.romajiColIndex >= 0
                                 ? r[mapping.romajiColIndex] || "-"

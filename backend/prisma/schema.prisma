@@ -36,6 +36,8 @@ model User {
   createdBy          String?       // id giáo viên tạo tài khoản
   createdAt          DateTime      @default(now())
   attempts           TestAttempt[]
+  createdDecks       FlashcardDeck[]
+  cardProgress       FlashcardProgress[]
 }
 
 model Class {
@@ -128,3 +130,53 @@ model Response {
   gradedAt   DateTime?
   updatedAt  DateTime    @updatedAt // dùng cho autosave
 }
+
+model FlashcardDeck {
+  id          Int             @id @default(autoincrement())
+  title       String
+  description String?
+  type        String          @default("VOCABULARY") // VOCABULARY | SENTENCE | GRAMMAR
+  language    String          @default("ko")         // ko, en, ja...
+  isPublic    Boolean         @default(true)
+  createdBy   Int?
+  creator     User?           @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  cards       FlashcardCard[]
+}
+
+model FlashcardCard {
+  id                 Int                 @id @default(autoincrement())
+  deckId             Int
+  deck               FlashcardDeck       @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  korean             String              // Từ vựng / câu tiếng Hàn
+  vietnamese         String              // Nghĩa tiếng Việt
+  english            String?             // Nghĩa tiếng Anh
+  hanja              String?             // Chữ Hán tương ứng
+  romaji             String?             // Phiên âm Latinh
+  exampleSentence    String?             // Ví dụ tiếng Hàn
+  exampleTranslation String?             // Dịch ví dụ
+  notes              String?
+  order              Int                 @default(0)
+  createdAt          DateTime            @default(now())
+  progress           FlashcardProgress[]
+}
+
+model FlashcardProgress {
+  id             Int           @id @default(autoincrement())
+  userId         Int
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cardId         Int
+  card           FlashcardCard @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  state          String        @default("NEW") // NEW | LEARNING | REVIEW | MASTERED
+  interval       Int           @default(0)     // Số ngày giãn cách cho lần ôn tiếp theo
+  repetition     Int           @default(0)     // Số lần nhớ liên tiếp
+  easeFactor     Float         @default(2.5)   // Hệ số độ dễ SuperMemo SM-2
+  nextReviewDate DateTime      @default(now())
+  lastReviewedAt DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@unique([userId, cardId])
+}
+

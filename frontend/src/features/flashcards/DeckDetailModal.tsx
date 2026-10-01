@@ -21,7 +21,7 @@ interface DeckDetailModalProps {
   deck: FlashcardDeck | null;
   isOpen: boolean;
   onClose: () => void;
-  onStartStudy: (deckId: string) => void;
+  onStartStudy: (deckId: string | number) => void;
 }
 
 export function DeckDetailModal({
@@ -36,12 +36,15 @@ export function DeckDetailModal({
 
   if (!isOpen || !deck) return null;
 
-  const filteredCards = deck.cards.filter((c) => {
+  const allCards = deck.cards || [];
+
+  const filteredCards = allCards.filter((c) => {
+    const koreanText = c.korean || c.japanese || "";
     const matchesSearch =
       !search.trim() ||
       c.vietnamese.toLowerCase().includes(search.toLowerCase()) ||
-      c.english.toLowerCase().includes(search.toLowerCase()) ||
-      c.japanese.toLowerCase().includes(search.toLowerCase()) ||
+      (c.english && c.english.toLowerCase().includes(search.toLowerCase())) ||
+      koreanText.toLowerCase().includes(search.toLowerCase()) ||
       (c.romaji && c.romaji.toLowerCase().includes(search.toLowerCase()));
 
     if (!matchesSearch) return false;
@@ -51,9 +54,13 @@ export function DeckDetailModal({
     return true;
   });
 
-  const masteredCount = deck.cards.filter((c) => c.mastered).length;
+  const totalCount = allCards.length || deck.totalCards || 0;
+  const masteredCount =
+    allCards.length > 0
+      ? allCards.filter((c) => c.mastered).length
+      : deck.masteredCount || 0;
   const progressPercent =
-    deck.cards.length > 0 ? Math.round((masteredCount / deck.cards.length) * 100) : 0;
+    totalCount > 0 ? Math.round((masteredCount / totalCount) * 100) : 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">
@@ -70,7 +77,7 @@ export function DeckDetailModal({
               </h2>
             </div>
             <p className="text-xs text-muted-foreground">
-              Đã thuộc {masteredCount}/{deck.cards.length} thẻ ({progressPercent}%)
+              Đã thuộc {masteredCount}/{totalCount} thẻ ({progressPercent}%)
             </p>
           </div>
 
@@ -116,7 +123,7 @@ export function DeckDetailModal({
                   filterState === "ALL" ? "bg-card shadow-xs text-foreground" : "text-muted-foreground"
                 }`}
               >
-                Tất cả ({deck.cards.length})
+                Tất cả ({totalCount})
               </button>
               <button
                 onClick={() => setFilterState("UNMASTERED")}
@@ -124,7 +131,7 @@ export function DeckDetailModal({
                   filterState === "UNMASTERED" ? "bg-card shadow-xs text-amber-600 dark:text-amber-400" : "text-muted-foreground"
                 }`}
               >
-                Chưa thuộc ({deck.cards.length - masteredCount})
+                Chưa thuộc ({Math.max(0, totalCount - masteredCount)})
               </button>
               <button
                 onClick={() => setFilterState("MASTERED")}
@@ -164,42 +171,46 @@ export function DeckDetailModal({
                 <thead className="bg-muted/50 text-muted-foreground border-b text-[11px]">
                   <tr>
                     <th className="p-3 w-10 text-center">#</th>
-                    <th className="p-3">日本語 (Tiếng Nhật)</th>
+                    <th className="p-3">Từ vựng (한국어 / Tiếng Hàn)</th>
                     <th className="p-3">English (Tiếng Anh)</th>
                     <th className="p-3">Tiếng Việt</th>
                     <th className="p-3 w-28 text-center">Trạng thái</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {filteredCards.map((card, idx) => (
-                    <tr key={card.id} className="hover:bg-muted/20 transition-colors">
-                      <td className="p-3 text-center text-muted-foreground font-mono">
-                        {idx + 1}
-                      </td>
-                      <td className="p-3 font-medium">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-foreground text-sm font-semibold">
-                            {card.japanese}
-                          </span>
-                          <button
-                            onClick={() => speakText(card.japanese, "ja-JP")}
-                            className="w-6 h-6 rounded-md hover:bg-muted text-muted-foreground hover:text-primary flex items-center justify-center transition-colors cursor-pointer"
-                            title="Phát âm tiếng Nhật"
-                          >
-                            <Volume2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                        {card.romaji && (
-                          <span className="text-[11px] text-muted-foreground font-mono block">
-                            {card.romaji}
-                          </span>
-                        )}
-                      </td>
+                  {filteredCards.map((card, idx) => {
+                    const originalWord = card.korean || card.japanese || "";
+                    const isKorean = deck.language === "ko" || Boolean(card.korean);
+
+                    return (
+                      <tr key={card.id} className="hover:bg-muted/20 transition-colors">
+                        <td className="p-3 text-center text-muted-foreground font-mono">
+                          {idx + 1}
+                        </td>
+                        <td className="p-3 font-medium">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-foreground text-sm font-semibold">
+                              {originalWord}
+                            </span>
+                            <button
+                              onClick={() => speakText(originalWord, isKorean ? "ko-KR" : "ja-JP")}
+                              className="w-6 h-6 rounded-md hover:bg-muted text-muted-foreground hover:text-primary flex items-center justify-center transition-colors cursor-pointer"
+                              title="Nghe phát âm chuẩn"
+                            >
+                              <Volume2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                          {card.romaji && (
+                            <span className="text-[11px] text-muted-foreground font-mono block">
+                              [{card.romaji}]
+                            </span>
+                          )}
+                        </td>
                       <td className="p-3 text-foreground">
                         <div className="flex items-center gap-1.5">
                           <span>{card.english}</span>
                           <button
-                            onClick={() => speakText(card.english, "en-US")}
+                            onClick={() => speakText(card.english || "", "en-US")}
                             className="w-6 h-6 rounded-md hover:bg-muted text-muted-foreground hover:text-blue-500 flex items-center justify-center transition-colors cursor-pointer"
                             title="Phát âm tiếng Anh"
                           >
@@ -231,8 +242,9 @@ export function DeckDetailModal({
                         </button>
                       </td>
                     </tr>
-                  ))}
-                </tbody>
+                  );
+                })}
+              </tbody>
               </table>
             </div>
           )}

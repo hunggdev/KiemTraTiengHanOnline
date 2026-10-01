@@ -282,7 +282,7 @@ interface TestListPageProps {
   onViewDetail?: (id: string) => void;
   onEditTest?: (id: string) => void;
   onViewStats?: (id: string) => void;
-  onViewGrading?: (id: string) => void;
+  onViewGrading?: (id: string, attemptId?: string | null) => void;
 }
 
 export function TestListPage({

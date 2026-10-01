@@ -2,7 +2,11 @@
  * Web Speech Synthesis utility for multi-language pronunciation
  */
 
-export function speakText(text: string, lang: "ja-JP" | "en-US" | "vi-VN" = "ja-JP", rate: number = 0.9): boolean {
+export function speakText(
+  text: string,
+  lang: "ko-KR" | "ja-JP" | "en-US" | "vi-VN" = "ko-KR",
+  rate: number = 0.9
+): boolean {
   if (typeof window === "undefined" || !("speechSynthesis" in window)) {
     console.warn("Speech synthesis not supported in this browser.");
     return false;

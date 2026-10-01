@@ -151,10 +151,10 @@ export function guessColumnMapping(headers: string[]): ColumnMappingConfig {
       return;
     }
 
-    // 3. 日本語
+    // 3. 日本語 / Tiếng Hàn / Chữ gốc
     if (
       japaneseCol === -1 &&
-      /^(ja|jp|japanese|nihon|tiếng nhật|tieng nhat|kanji|hán tự|từ vựng|cau|câu|tu vung)/i.test(headerLower)
+      /^(ja|jp|japanese|nihon|tiếng nhật|tieng nhat|kanji|hán tự|từ vựng|cau|câu|tu vung|ko|kr|korean|tiếng hàn|tieng han|hangul|hangeul|한국어|조선말|từ gốc)/i.test(headerLower)
     ) {
       japaneseCol = index;
       return;

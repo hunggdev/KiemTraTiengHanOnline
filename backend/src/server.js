@@ -6,6 +6,7 @@ import { connectDB } from "./config/database.js";
 import authRoute from "./routes/authRoute.js";
 import testRoute from "./routes/testRoute.js";
 import aiRoute from "./routes/aiRoute.js";
+import flashcardRoute from "./routes/flashcardRoute.js";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -13,6 +14,9 @@ const PORT = process.env.PORT || 5000;
 const allowedOrigins = [
   "http://localhost:5173",
   "http://127.0.0.1:5173",
+  "http://localhost:5174",
+  "http://127.0.0.1:5174",
+  "http://localhost:5175",
   "http://localhost:3000",
   process.env.CLIENT_URL,
   process.env.FRONTEND_URL,
@@ -25,6 +29,7 @@ app.use(
       if (
         !origin ||
         allowedOrigins.includes(origin) ||
+        /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin) ||
         origin.endsWith(".vercel.app")
       ) {
         callback(null, true);
@@ -43,6 +48,7 @@ app.use(express.json());
 app.use("/api/auth", authRoute);
 app.use("/api/tests", testRoute);
 app.use("/api/ai", aiRoute);
+app.use("/api/flashcards", flashcardRoute);
 
 connectDB().then(() => {
   app.listen(PORT, () => {

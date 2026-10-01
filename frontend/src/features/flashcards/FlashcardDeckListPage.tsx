@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Sparkles,
   Plus,
@@ -16,6 +16,10 @@ import {
   FileQuestion,
   ShieldCheck,
   Lock,
+  Cloud,
+  Loader2,
+  Flame,
+  Award,
 } from "lucide-react";
 import { useFlashcardStore } from "@/stores/useFlashcardStore.ts";
 import { useAuthStore } from "@/stores/useAuthStore.ts";
@@ -28,12 +32,19 @@ import { DeckDetailModal } from "./DeckDetailModal.tsx";
 import { StudentPermissionModal } from "./StudentPermissionModal.tsx";
 
 interface FlashcardDeckListPageProps {
-  onStartStudy: (deckId: string) => void;
+  onStartStudy: (deckId: string | number) => void;
 }
 
 export function FlashcardDeckListPage({ onStartStudy }: FlashcardDeckListPageProps) {
   const { user } = useAuthStore();
-  const { decks, deleteDeck, loadSampleDecksIfEmpty, importPreloadedSamples } = useFlashcardStore();
+  const {
+    decks,
+    deleteDeck,
+    loadSampleDecksIfEmpty,
+    importPreloadedSamples,
+    syncLocalToCloud,
+    isSyncing,
+  } = useFlashcardStore();
 
   const isTeacher = user?.role === "TEACHER";
   const canAccess = isTeacher || Boolean(user?.canAccessFlashcard);
@@ -76,15 +87,31 @@ export function FlashcardDeckListPage({ onStartStudy }: FlashcardDeckListPagePro
     );
   });
 
+  const now = new Date();
   const totalDecks = decks.length;
-  const totalCards = decks.reduce((sum, d) => sum + d.cards.length, 0);
-  const totalMastered = decks.reduce(
-    (sum, d) => sum + d.cards.filter((c) => c.mastered).length,
+  const totalCards = decks.reduce(
+    (sum, d) => sum + (d.cards?.length || d.totalCards || 0),
     0
   );
+  const totalMastered = decks.reduce(
+    (sum, d) =>
+      sum + (d.cards ? d.cards.filter((c) => c.mastered).length : (d.masteredCount || 0)),
+    0
+  );
+  const totalDueToday = decks.reduce((sum, d) => {
+    if (d.cards && d.cards.length > 0) {
+      const dueInDeck = d.cards.filter((c) => {
+        if (!c.nextReviewDate) return true;
+        return new Date(c.nextReviewDate) <= now;
+      }).length;
+      return sum + dueInDeck;
+    }
+    return sum + (d.dueCount || 0);
+  }, 0);
+
   const overallProgress = totalCards > 0 ? Math.round((totalMastered / totalCards) * 100) : 0;
 
-  const handleDeleteDeck = (e: React.MouseEvent, deckId: string, title: string) => {
+  const handleDeleteDeck = (e: React.MouseEvent, deckId: string | number, title: string) => {
     e.stopPropagation();
     if (window.confirm(`Bạn có chắc muốn xoá bộ thẻ "${title}"?`)) {
       deleteDeck(deckId);
@@ -98,13 +125,13 @@ export function FlashcardDeckListPage({ onStartStudy }: FlashcardDeckListPagePro
         <div className="max-w-5xl mx-auto text-center space-y-3">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold">
             <Languages className="w-3.5 h-3.5" />
-            Hệ thống Flashcard Đa ngôn ngữ (VI - EN - JA - Romaji)
+            Hệ thống Flashcard SRS 2.0 (Tiếng Hàn TOPIK & Đa ngôn ngữ)
           </div>
           <h1 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight">
-            Bộ thẻ Flashcard học từ vựng & mẫu câu
+            Bộ thẻ Flashcard học từ vựng & mẫu câu thông minh
           </h1>
           <p className="text-muted-foreground text-sm max-w-xl mx-auto">
-            Học tập qua thẻ ghi nhớ 3D, hỗ trợ phát âm chuẩn bản xứ, nhập nhanh từ Excel / CSV và theo dõi tiến độ ghi nhớ liên tục.
+            Ghi nhớ sâu bằng thuật toán SuperMemo SM-2, tích hợp bàn phím ảo tiếng Hàn 2-beolsik, trò chơi ghép thẻ tốc độ và đồng bộ đám mây PostgreSQL.
           </p>
 
           {/* Quick Stats Grid */}
@@ -114,8 +141,11 @@ export function FlashcardDeckListPage({ onStartStudy }: FlashcardDeckListPagePro
               <span className="text-xl font-bold text-foreground">{totalDecks}</span>
             </div>
             <div className="p-3 rounded-2xl bg-card border shadow-xs">
-              <span className="text-[11px] text-muted-foreground block mb-0.5">Tổng số thẻ</span>
-              <span className="text-xl font-bold text-foreground">{totalCards}</span>
+              <span className="text-[11px] text-muted-foreground block mb-0.5">Cần ôn hôm nay</span>
+              <span className="text-xl font-bold text-amber-600 dark:text-amber-400 flex items-center justify-center gap-1">
+                <Flame className="w-4 h-4 fill-amber-500" />
+                {totalDueToday}
+              </span>
             </div>
             <div className="p-3 rounded-2xl bg-card border shadow-xs">
               <span className="text-[11px] text-muted-foreground block mb-0.5">Đã thuộc</span>
@@ -136,7 +166,27 @@ export function FlashcardDeckListPage({ onStartStudy }: FlashcardDeckListPagePro
               className="w-full sm:w-auto rounded-xl gap-2 font-semibold shadow-xs cursor-pointer"
             >
               <Plus className="w-4 h-4" />
-              <span>+ Nhập bộ thẻ mới (.xlsx, .csv)</span>
+              <span>+ Nhập bộ thẻ (.xlsx, .csv)</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              disabled={isSyncing}
+              onClick={() => syncLocalToCloud()}
+              className="w-full sm:w-auto rounded-xl gap-1.5 font-semibold text-foreground border-border hover:bg-muted cursor-pointer"
+              title="Đồng bộ toàn bộ bộ thẻ lên Cloud Database"
+            >
+              {isSyncing ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                  <span>Đang đồng bộ...</span>
+                </>
+              ) : (
+                <>
+                  <Cloud className="w-4 h-4 text-primary" />
+                  <span>Đồng bộ Cloud DB</span>
+                </>
+              )}
             </Button>
 
             {isTeacher && (
@@ -185,12 +235,12 @@ export function FlashcardDeckListPage({ onStartStudy }: FlashcardDeckListPagePro
             <FileQuestion className="w-12 h-12 mx-auto opacity-40" />
             <p className="font-semibold text-foreground">Chưa tìm thấy bộ thẻ nào</p>
             <p className="text-xs text-muted-foreground">
-              Nhấn "+ Nhập bộ thẻ mới" hoặc "Nạp bộ thẻ mẫu" để bắt đầu học ngay.
+              Nhấn "+ Nhập bộ thẻ" hoặc "Nạp bộ thẻ mẫu" để bắt đầu học ngay.
             </p>
             <Button
               onClick={() => setIsImportModalOpen(true)}
               size="sm"
-              className="rounded-xl mt-2"
+              className="rounded-xl mt-2 cursor-pointer"
             >
               <Plus className="w-4 h-4 mr-1.5" />
               Nhập bộ thẻ mới
@@ -199,9 +249,21 @@ export function FlashcardDeckListPage({ onStartStudy }: FlashcardDeckListPagePro
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {filteredDecks.map((deck) => {
-              const cardCount = deck.cards.length;
-              const mastered = deck.cards.filter((c) => c.mastered).length;
+              const cards = deck.cards || [];
+              const cardCount = cards.length || deck.totalCards || 0;
+              const mastered =
+                cards.length > 0
+                  ? cards.filter((c) => c.mastered).length
+                  : (deck.masteredCount || 0);
+              const dueInDeck =
+                cards.length > 0
+                  ? cards.filter((c) => {
+                      if (!c.nextReviewDate) return true;
+                      return new Date(c.nextReviewDate) <= now;
+                    }).length
+                  : (deck.dueCount || 0);
               const percent = cardCount > 0 ? Math.round((mastered / cardCount) * 100) : 0;
+              const isKorean = deck.language === "ko" || cards.some((c) => c.korean);
 
               return (
                 <div
@@ -209,18 +271,30 @@ export function FlashcardDeckListPage({ onStartStudy }: FlashcardDeckListPagePro
                   className="group bg-card rounded-3xl border shadow-sm hover:shadow-md hover:border-primary/40 transition-all flex flex-col justify-between overflow-hidden p-5 space-y-4"
                 >
                   <div className="space-y-3">
-                    {/* Header: Type Badge & Delete */}
+                    {/* Header: Type Badge, Lang Badge & Delete */}
                     <div className="flex items-start justify-between gap-2">
-                      <Badge
-                        variant="outline"
-                        className={`text-[10px] font-bold ${
-                          deck.type === "VOCABULARY"
-                            ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20"
-                            : "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20"
-                        }`}
-                      >
-                        {deck.type === "VOCABULARY" ? "Từ vựng" : "Mẫu câu"}
-                      </Badge>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <Badge
+                          variant="outline"
+                          className={`text-[10px] font-bold ${
+                            isKorean
+                              ? "bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/20"
+                              : "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20"
+                          }`}
+                        >
+                          {isKorean ? "Tiếng Hàn (한국어)" : "Song ngữ"}
+                        </Badge>
+
+                        {dueInDeck > 0 && (
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 flex items-center gap-0.5"
+                          >
+                            <Flame className="w-3 h-3 fill-amber-500" />
+                            {dueInDeck} cần ôn
+                          </Badge>
+                        )}
+                      </div>
 
                       <button
                         onClick={(e) => handleDeleteDeck(e, deck.id, deck.title)}

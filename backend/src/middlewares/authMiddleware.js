@@ -72,3 +72,36 @@ export const requireRole = (...allowedRoles) => {
     next();
   };
 };
+
+/**
+ * Middleware xác thực tùy chọn (nếu có token hợp lệ thì gán req.user, nếu không thì vẫn cho qua)
+ */
+export const optionalAuth = async (req, res, next) => {
+  try {
+    let token = req.cookies?.token;
+    if (!token && req.headers.authorization?.startsWith("Bearer ")) {
+      token = req.headers.authorization.split(" ")[1];
+    }
+
+    if (token) {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      const user = await prisma.user.findUnique({
+        where: { id: decoded.id },
+        select: {
+          id: true,
+          username: true,
+          fullName: true,
+          role: true,
+          classId: true,
+          canAccessFlashcard: true,
+        },
+      });
+      if (user) {
+        req.user = user;
+      }
+    }
+  } catch (error) {
+    // Không ném lỗi nếu token hết hạn / không hợp lệ
+  }
+  next();
+};

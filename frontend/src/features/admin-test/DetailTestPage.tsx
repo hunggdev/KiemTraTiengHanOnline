@@ -47,7 +47,7 @@ interface DetailTestPageProps {
   onBack: () => void;
   onEdit?: (testId: string) => void;
   onViewStats?: (testId: string) => void;
-  onViewGrading?: (testId: string) => void;
+  onViewGrading?: (testId: string, attemptId?: string | null) => void;
 }
 
 
