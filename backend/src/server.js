@@ -7,6 +7,8 @@ import authRoute from "./routes/authRoute.js";
 import testRoute from "./routes/testRoute.js";
 import aiRoute from "./routes/aiRoute.js";
 import flashcardRoute from "./routes/flashcardRoute.js";
+import classRoute from "./routes/classRoute.js";
+import assignmentRoute from "./routes/assignmentRoute.js";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -49,6 +51,8 @@ app.use("/api/auth", authRoute);
 app.use("/api/tests", testRoute);
 app.use("/api/ai", aiRoute);
 app.use("/api/flashcards", flashcardRoute);
+app.use("/api/classes", classRoute);
+app.use("/api/assignments", assignmentRoute);
 
 connectDB().then(() => {
   app.listen(PORT, () => {

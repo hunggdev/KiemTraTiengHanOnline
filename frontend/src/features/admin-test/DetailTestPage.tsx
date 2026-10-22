@@ -41,6 +41,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog.tsx";
+import { TestAssignmentPanel } from "./TestAssignmentPanel.tsx";
 
 interface DetailTestPageProps {
   testId: string;
@@ -376,6 +377,9 @@ export function DetailTestPage({
             <span>Ngày tạo: {createdAt}</span>
           </div>
         </div>
+
+        {/* Panel Giao bài theo lớp */}
+        <TestAssignmentPanel testId={test.id} testTitle={test.title} />
 
         {/* Section List & Questions */}
         <div className="space-y-6">

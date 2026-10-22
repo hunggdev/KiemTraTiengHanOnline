@@ -123,6 +123,10 @@ export function FlashcardStudyPage({ deckId, onBack }: FlashcardStudyPageProps) 
     setIsFinished(list.length === 0);
     setTypingInput("");
     setTypingResult(null);
+    // Reset quiz state khi đổi bộ lọc / deck
+    setQuizSelectedOption(null);
+    setQuizAnswerChecked(false);
+    setQuizScore(0);
   }, [deck, filterMode]);
 
   const currentCard: FlashcardItem | undefined = cardOrder[currentIndex];
@@ -228,12 +232,25 @@ export function FlashcardStudyPage({ deckId, onBack }: FlashcardStudyPageProps) 
   };
 
   // --- MODE 2: XỬ LÝ TYPING MODE ---
+  // Lấy từ đích cần gõ dựa theo frontLang
+  const getTypingTarget = useCallback((card: FlashcardItem | undefined): string => {
+    if (!card) return "";
+    if (frontLang === "korean") return card.korean || "";
+    if (frontLang === "japanese") return card.japanese || "";
+    if (frontLang === "english") return card.english || "";
+    // Mặc định: gõ từ ngôn ngữ gốc (korean ưu tiên)
+    return card.korean || card.japanese || card.english || "";
+  }, [frontLang]);
+
   const handleCheckTyping = () => {
     if (!currentCard) return;
-    const target = (currentCard.korean || currentCard.japanese || "").trim().toLowerCase();
-    const typed = typingInput.trim().toLowerCase();
+    const target = getTypingTarget(currentCard).trim();
+    const typed = typingInput.trim();
 
-    if (typed === target) {
+    // So sánh không phân biệt hoa/thường cho tiếng Anh, giữ nguyên cho chữ Hàn/Nhật
+    const normalize = (s: string) => s.toLowerCase().replace(/\s+/g, " ");
+
+    if (normalize(typed) === normalize(target)) {
       setTypingResult("correct");
       handlePlayAudio(currentCard.korean || frontWord);
       // Đánh giá Good trên SRS
@@ -356,14 +373,32 @@ export function FlashcardStudyPage({ deckId, onBack }: FlashcardStudyPageProps) 
   // --- MODE 4: QUICK QUIZ ---
   const quizOptions = useMemo(() => {
     if (!currentCard || !deck) return [];
-    const correctMeaning = currentCard.vietnamese;
-    const others = (deck.cards || [])
-      .filter((c) => c.id !== currentCard.id && c.vietnamese !== correctMeaning)
+    const correctMeaning = currentCard.vietnamese || "(Không có nghĩa)";
+
+    // Lấy các đáp án nhiễu: khác id, khác nghĩa, không null/undefined
+    const distractors = (deck.cards || [])
+      .filter(
+        (c) =>
+          c.id !== currentCard.id &&
+          c.vietnamese &&
+          c.vietnamese !== correctMeaning
+      )
       .map((c) => c.vietnamese)
       .sort(() => 0.5 - Math.random())
       .slice(0, 3);
 
-    return [correctMeaning, ...others].sort(() => 0.5 - Math.random());
+    // Nếu thiếu đáp án nhiễu (deck nhỏ), tạo thêm placeholder
+    const placeholders = ["Không rõ", "Khác", "Không xác định"];
+    while (distractors.length < 3) {
+      const ph = placeholders[distractors.length];
+      if (!distractors.includes(ph) && ph !== correctMeaning) {
+        distractors.push(ph);
+      } else {
+        distractors.push(`Lựa chọn ${distractors.length + 1}`);
+      }
+    }
+
+    return [correctMeaning, ...distractors].sort(() => 0.5 - Math.random());
   }, [currentCard, deck]);
 
   const handleSelectQuizOption = (option: string) => {
@@ -608,7 +643,7 @@ export function FlashcardStudyPage({ deckId, onBack }: FlashcardStudyPageProps) 
                 </div>
               )}
 
-              {/* Ô gõ từ tiếng Hàn */}
+              {/* Ô gõ từ theo ngôn ngữ đích */}
               <div className="max-w-md mx-auto space-y-3 pt-2">
                 <div className="relative">
                   <input
@@ -624,7 +659,7 @@ export function FlashcardStudyPage({ deckId, onBack }: FlashcardStudyPageProps) 
                         handleCheckTyping();
                       }
                     }}
-                    placeholder="Gõ từ tiếng Hàn tương ứng..."
+                    placeholder={`Gõ từ ${frontLang === "korean" ? "tiếng Hàn" : frontLang === "japanese" ? "tiếng Nhật" : frontLang === "english" ? "tiếng Anh" : "tương ứng"}...`}
                     className={`w-full h-12 px-4 text-center text-lg font-bold rounded-2xl border bg-background text-foreground transition-all shadow-inner focus:outline-hidden ${
                       typingResult === "correct"
                         ? "border-emerald-500 bg-emerald-500/10 text-emerald-600"
@@ -656,9 +691,17 @@ export function FlashcardStudyPage({ deckId, onBack }: FlashcardStudyPageProps) 
                     <p className="text-foreground">
                       Đáp án đúng là:{" "}
                       <span className="font-extrabold text-primary text-sm">
-                        {currentCard?.korean || currentCard?.japanese}
+                        {getTypingTarget(currentCard)}
                       </span>
                     </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleNext}
+                      className="mt-1 rounded-xl text-xs"
+                    >
+                      Bỏ qua, sang thẻ tiếp
+                    </Button>
                   </div>
                 )}
 

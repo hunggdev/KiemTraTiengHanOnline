@@ -109,12 +109,41 @@ export const testService = {
   // Nộp bài thi và lưu vào Database
   submitAttempt: async (
     id: string,
-    payload: { userId?: string; answers: { questionId: string; answerText: string }[] }
+    payload: { answers: { questionId: string; answerText: string }[] }
   ): Promise<{ success: boolean; message: string; data: any }> => {
     const { data } = await api.post<{ success: boolean; message: string; data: any }>(
       `/tests/${id}/submit`,
       payload
     );
+    return data;
+  },
+
+  // Lấy bài thi đang mở cho học sinh (gồm bài giao cho lớp và bài thi chung)
+  getAvailable: async (): Promise<{ success: boolean; data: any[] }> => {
+    const { data } = await api.get<{ success: boolean; data: any[] }>("/assignments/available");
+    return data;
+  },
+
+  // Lấy danh sách lịch sử thi của học sinh
+  getMyAttempts: async (): Promise<{
+    success: boolean;
+    data: {
+      attempts: any[];
+      summary: {
+        totalAttempts: number;
+        avgScore: number;
+        highestScore: number;
+        pendingCount: number;
+      };
+    };
+  }> => {
+    const { data } = await api.get("/tests/my/attempts");
+    return data;
+  },
+
+  // Lấy chi tiết bài thi đã làm của học sinh (kèm đáp án, điểm số, bài chữa)
+  getMyAttemptDetail: async (attemptId: string): Promise<{ success: boolean; data: any }> => {
+    const { data } = await api.get(`/tests/my/attempts/${attemptId}`);
     return data;
   },
 };

@@ -30,6 +30,7 @@ import { Badge } from "@/components/ui/badge.tsx";
 import { ImportDeckModal } from "./ImportDeckModal.tsx";
 import { DeckDetailModal } from "./DeckDetailModal.tsx";
 import { StudentPermissionModal } from "./StudentPermissionModal.tsx";
+import { FlashcardDashboardModal } from "./FlashcardDashboardModal.tsx";
 
 interface FlashcardDeckListPageProps {
   onStartStudy: (deckId: string | number) => void;
@@ -52,7 +53,9 @@ export function FlashcardDeckListPage({ onStartStudy }: FlashcardDeckListPagePro
   const [search, setSearch] = useState("");
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isPermissionModalOpen, setIsPermissionModalOpen] = useState(false);
+  const [isDashboardOpen, setIsDashboardOpen] = useState(false);
   const [selectedDeckForDetail, setSelectedDeckForDetail] = useState<FlashcardDeck | null>(null);
+  const { studyStats } = useFlashcardStore();
 
   // Khởi tạo sample decks nếu chưa có bộ nào
   useEffect(() => {
@@ -135,7 +138,18 @@ export function FlashcardDeckListPage({ onStartStudy }: FlashcardDeckListPagePro
           </p>
 
           {/* Quick Stats Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-2xl mx-auto pt-4 text-center">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 max-w-3xl mx-auto pt-4 text-center">
+            <div
+              onClick={() => setIsDashboardOpen(true)}
+              className="p-3 rounded-2xl bg-gradient-to-b from-amber-500/10 to-card border border-amber-500/30 shadow-xs cursor-pointer hover:border-amber-500 transition-all group"
+            >
+              <span className="text-[11px] text-amber-600 dark:text-amber-400 font-semibold flex items-center justify-center gap-1 mb-0.5">
+                <Flame className="w-3.5 h-3.5 fill-amber-500" /> Chuỗi Streak
+              </span>
+              <span className="text-xl font-black text-foreground group-hover:scale-105 transition-transform inline-block">
+                {studyStats?.streak || 0} ngày
+              </span>
+            </div>
             <div className="p-3 rounded-2xl bg-card border shadow-xs">
               <span className="text-[11px] text-muted-foreground block mb-0.5">Tổng số bộ thẻ</span>
               <span className="text-xl font-bold text-foreground">{totalDecks}</span>
@@ -143,7 +157,7 @@ export function FlashcardDeckListPage({ onStartStudy }: FlashcardDeckListPagePro
             <div className="p-3 rounded-2xl bg-card border shadow-xs">
               <span className="text-[11px] text-muted-foreground block mb-0.5">Cần ôn hôm nay</span>
               <span className="text-xl font-bold text-amber-600 dark:text-amber-400 flex items-center justify-center gap-1">
-                <Flame className="w-4 h-4 fill-amber-500" />
+                <Clock className="w-3.5 h-3.5" />
                 {totalDueToday}
               </span>
             </div>
@@ -162,7 +176,16 @@ export function FlashcardDeckListPage({ onStartStudy }: FlashcardDeckListPagePro
           {/* Actions Bar */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4 max-w-xl mx-auto flex-wrap">
             <Button
+              onClick={() => setIsDashboardOpen(true)}
+              className="w-full sm:w-auto rounded-xl gap-2 font-semibold shadow-xs bg-amber-500 hover:bg-amber-600 text-white cursor-pointer"
+            >
+              <Flame className="w-4 h-4 fill-white" />
+              <span>Tiến độ SRS & Streak</span>
+            </Button>
+
+            <Button
               onClick={() => setIsImportModalOpen(true)}
+              variant="outline"
               className="w-full sm:w-auto rounded-xl gap-2 font-semibold shadow-xs cursor-pointer"
             >
               <Plus className="w-4 h-4" />
@@ -389,6 +412,12 @@ export function FlashcardDeckListPage({ onStartStudy }: FlashcardDeckListPagePro
           onClose={() => setIsPermissionModalOpen(false)}
         />
       )}
+
+      <FlashcardDashboardModal
+        isOpen={isDashboardOpen}
+        onClose={() => setIsDashboardOpen(false)}
+        onStartStudy={onStartStudy}
+      />
     </div>
   );
 }

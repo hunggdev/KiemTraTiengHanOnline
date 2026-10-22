@@ -34,6 +34,34 @@ export const useTests = (params: TestListQueryParams = {}) => {
   });
 };
 
+/** Lấy danh sách bài test khả dụng cho học sinh (gồm bài giao theo lớp và bài tự do) */
+export const useAvailableTests = () => {
+  return useQuery({
+    queryKey: [...testKeys.all, "available"] as const,
+    queryFn: () => testService.getAvailable(),
+    staleTime: 15_000,
+  });
+};
+
+/** Lấy lịch sử làm bài thi của học sinh */
+export const useMyAttempts = () => {
+  return useQuery({
+    queryKey: [...testKeys.all, "myAttempts"] as const,
+    queryFn: () => testService.getMyAttempts(),
+    staleTime: 10_000,
+  });
+};
+
+/** Lấy chi tiết bài thi đã làm của học sinh (đáp án, điểm số, chữa bài) */
+export const useMyAttemptDetail = (attemptId: string) => {
+  return useQuery({
+    queryKey: [...testKeys.all, "myAttemptDetail", attemptId] as const,
+    queryFn: () => testService.getMyAttemptDetail(attemptId),
+    enabled: !!attemptId,
+    staleTime: 30_000,
+  });
+};
+
 /** Lấy chi tiết 1 bài test */
 export const useTestById = (id: string) => {
   return useQuery({
@@ -185,13 +213,11 @@ export const useSubmitTestAttempt = (testId?: string) => {
   return useMutation({
     mutationFn: (variables: {
       testId?: string;
-      userId?: string;
       answers: { questionId: string; answerText: string }[];
     }) => {
       const id = variables.testId || testId;
       if (!id) throw new Error("Test ID is required to submit attempt");
       return testService.submitAttempt(id, {
-        userId: variables.userId,
         answers: variables.answers,
       });
     },

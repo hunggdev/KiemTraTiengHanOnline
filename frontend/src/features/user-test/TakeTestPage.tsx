@@ -151,7 +151,6 @@ export function TakeTestPage({ testId, onExit, onFinish }: TakeTestPageProps) {
 
       const res = await submitMutation.mutateAsync({
         testId,
-        userId: currentUserId,
         answers: payloadAnswers,
       });
 

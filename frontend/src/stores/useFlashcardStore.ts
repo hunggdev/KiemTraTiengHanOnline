@@ -8,11 +8,32 @@ import type {
 } from "@/types/flashcard.types.ts";
 import { flashcardService } from "@/services/flashcardService.ts";
 
+export interface StudyStats {
+  streak: number;
+  lastStudyDate: string;
+  totalReviews: number;
+  dailyReviews: Record<string, number>;
+}
+
+function getTodayString(): string {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function getYesterdayString(): string {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 interface FlashcardStoreState {
   decks: FlashcardDeck[];
   activeDeckId: string | number | null;
   isLoading: boolean;
   isSyncing: boolean;
+  studyStats: StudyStats;
 
   // Actions
   setActiveDeckId: (id: string | number | null) => void;
@@ -261,6 +282,12 @@ export const useFlashcardStore = create<FlashcardStoreState>()(
       activeDeckId: null,
       isLoading: false,
       isSyncing: false,
+      studyStats: {
+        streak: 0,
+        lastStudyDate: "",
+        totalReviews: 0,
+        dailyReviews: {},
+      },
 
       setActiveDeckId: (id) => set({ activeDeckId: id }),
 
@@ -489,12 +516,45 @@ export const useFlashcardStore = create<FlashcardStoreState>()(
 
       // Đánh giá SRS theo thuật toán SuperMemo SM-2
       reviewCardSRS: async (cardId, rating, deckId) => {
+        const todayStr = getTodayString();
+        const yestStr = getYesterdayString();
+
         // Cập nhật tính toán SM-2 ngay lập tức trên UI (Optimistic)
-        set((state) => ({
-          decks: state.decks.map((d) => {
-            if (deckId && String(d.id) !== String(deckId)) return d;
-            const hasCard = d.cards.some((c) => String(c.id) === String(cardId));
-            if (!hasCard) return d;
+        set((state) => {
+          const prevStats = state.studyStats || {
+            streak: 0,
+            lastStudyDate: "",
+            totalReviews: 0,
+            dailyReviews: {},
+          };
+
+          let newStreak = prevStats.streak || 0;
+          if (prevStats.lastStudyDate === todayStr) {
+            // Đã học hôm nay, giữ nguyên chuỗi
+          } else if (prevStats.lastStudyDate === yestStr) {
+            newStreak += 1;
+          } else {
+            newStreak = 1;
+          }
+
+          const newDaily = {
+            ...prevStats.dailyReviews,
+            [todayStr]: (prevStats.dailyReviews?.[todayStr] || 0) + 1,
+          };
+
+          const nextStats = {
+            streak: newStreak,
+            lastStudyDate: todayStr,
+            totalReviews: (prevStats.totalReviews || 0) + 1,
+            dailyReviews: newDaily,
+          };
+
+          return {
+            studyStats: nextStats,
+            decks: state.decks.map((d) => {
+              if (deckId && String(d.id) !== String(deckId)) return d;
+              const hasCard = d.cards.some((c) => String(c.id) === String(cardId));
+              if (!hasCard) return d;
 
             return {
               ...d,
@@ -540,7 +600,8 @@ export const useFlashcardStore = create<FlashcardStoreState>()(
               }),
             };
           }),
-        }));
+        };
+      });
 
         // Gửi lên Backend nếu card ID hợp lệ
         if (typeof cardId === "number" || !String(cardId).startsWith("card-")) {

@@ -10,10 +10,12 @@ export const createTest = async (req, res) => {
       title,
       description,
       durationMin,
-      createdBy,
       isPublished = false,
       sections,
     } = req.body;
+
+    // Lấy thông tin người tạo từ JWT (đã xác thực qua verifyAuth middleware)
+    const createdBy = req.user?.username || req.user?.fullName || "TEACHER";
 
     // Validate dữ liệu bắt buộc
     if (!title || durationMin === undefined || durationMin === null) {
@@ -525,34 +527,8 @@ export const submitTestAttempt = async (req, res) => {
     const testId = parseInt(id, 10);
     const { answers = [] } = req.body; // answers: [{ questionId, answerText }]
 
-    // 1. Lấy userId từ JWT cookie hoặc Authorization header (hoặc fallback từ body nếu mobile chặn cookie)
-    let validUserId = null;
-    try {
-      let token = req.cookies?.token;
-      if (!token && req.headers.authorization?.startsWith("Bearer ")) {
-        token = req.headers.authorization.split(" ")[1];
-      }
-      if (token) {
-        const decoded = jwt.verify(token, JWT_SECRET);
-        validUserId = decoded.id; // Int từ DB
-      }
-    } catch (_) {
-      // token không hợp lệ hoặc hết hạn
-    }
-
-    // Fallback: Khi cookie bị chặn trên trình duyệt điện thoại (iOS Safari / in-app browsers)
-    if (!validUserId && req.body.userId) {
-      const parsedUserId = parseInt(req.body.userId, 10);
-      if (!isNaN(parsedUserId)) {
-        const existingUser = await prisma.user.findUnique({
-          where: { id: parsedUserId },
-          select: { id: true },
-        });
-        if (existingUser) {
-          validUserId = existingUser.id;
-        }
-      }
-    }
+    // Lấy userId từ req.user (đã xác thực qua verifyAuth middleware)
+    const validUserId = req.user?.id;
 
     if (!validUserId) {
       return res.status(401).json({

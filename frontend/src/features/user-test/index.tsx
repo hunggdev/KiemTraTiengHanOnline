@@ -2,6 +2,7 @@ import { Routes, Route, useNavigate, useParams, useLocation, Navigate } from "re
 import { UserTestListPage } from "./UserTestListPage.tsx";
 import { TakeTestPage } from "./TakeTestPage.tsx";
 import { TestResultPage } from "./TestResultPage.tsx";
+import { TestHistoryPage } from "./TestHistoryPage.tsx";
 import { useSmartNavigate } from "@/lib/navigation.ts";
 import type { TestResultDTO } from "@/types/user-test.types.ts";
 
@@ -35,6 +36,12 @@ export function UserTestFeature() {
       <Route
         path="tests/:testId/result"
         element={<UserTestResultRoute />}
+      />
+
+      {/* 4. Lịch sử làm bài thi */}
+      <Route
+        path="history"
+        element={<TestHistoryPage onBackToTests={() => navigate("/student")} />}
       />
 
       {/* Fallback */}
@@ -85,3 +92,4 @@ function UserTestResultRoute() {
 export { UserTestListPage } from "./UserTestListPage.tsx";
 export { TakeTestPage } from "./TakeTestPage.tsx";
 export { TestResultPage } from "./TestResultPage.tsx";
+export { TestHistoryPage } from "./TestHistoryPage.tsx";

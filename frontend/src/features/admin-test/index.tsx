@@ -5,6 +5,7 @@ import { DetailTestPage } from "./DetailTestPage.tsx";
 import { EditTestPage } from "./EditTestPage.tsx";
 import { StatsChartPage } from "./StatsChartPage.tsx";
 import { TestGradingPage } from "./TestGradingPage.tsx";
+import { ClassManagementPage } from "./ClassManagementPage.tsx";
 import { useSmartNavigate } from "@/lib/navigation.ts";
 
 /**
@@ -77,6 +78,12 @@ export function AdminTestFeature() {
       <Route
         path="tests/:testId/grading"
         element={<AdminGradingRoute />}
+      />
+
+      {/* 7. Quản lý lớp học */}
+      <Route
+        path="classes"
+        element={<ClassManagementPage />}
       />
 
       {/* Fallback */}

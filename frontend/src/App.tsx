@@ -12,7 +12,7 @@ import { FlashcardFeature } from './features/flashcards/index.tsx'
 import { JapaneseAIChatPage, FloatingAIChatWidget } from './features/ai-tutor/index.tsx'
 import { AuthPage } from './features/auth/AuthPage.tsx'
 import { useAuthStore } from './stores/useAuthStore.ts'
-import { Shield, GraduationCap, Languages, LogOut, Loader2, Sparkles } from 'lucide-react'
+import { Shield, GraduationCap, Languages, LogOut, Loader2, Sparkles, School, History } from 'lucide-react'
 import { Button } from './components/ui/button.tsx'
 import { KoreanWordInspector } from './components/KoreanWordInspector.tsx'
 import { useFlashcardStore } from './stores/useFlashcardStore.ts'
@@ -65,9 +65,11 @@ function App() {
   const isTeacher = user.role === 'TEACHER'
 
   // Xác định tab đang active dựa theo URL hiện tại (giúp highlight đúng khi back/forward)
-  const getActiveTab = (): 'student' | 'admin' | 'flashcards' | 'ai-chat' => {
+  const getActiveTab = (): 'student' | 'admin' | 'flashcards' | 'ai-chat' | 'classes' | 'history' => {
     const path = location.pathname
+    if (path.startsWith('/admin/classes')) return 'classes'
     if (path.startsWith('/admin')) return 'admin'
+    if (path.startsWith('/student/history')) return 'history'
     if (path.startsWith('/flashcards')) return 'flashcards'
     if (path.startsWith('/ai-chat')) return 'ai-chat'
     if (path.startsWith('/student') || path.startsWith('/tests')) return 'student'
@@ -111,6 +113,20 @@ function App() {
               </button>
             )}
 
+            {isTeacher && (
+              <button
+                onClick={() => navigate('/admin/classes')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  activeTab === 'classes'
+                    ? 'bg-background text-foreground shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <School className="w-3.5 h-3.5 text-blue-500" />
+                Lớp học
+              </button>
+            )}
+
             <button
               onClick={() => navigate('/student')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
@@ -121,6 +137,18 @@ function App() {
             >
               <GraduationCap className="w-3.5 h-3.5" />
               Làm bài thi
+            </button>
+
+            <button
+              onClick={() => navigate('/student/history')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                activeTab === 'history'
+                  ? 'bg-background text-foreground shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <History className="w-3.5 h-3.5 text-amber-500" />
+              Lịch sử thi
             </button>
 
             <button
